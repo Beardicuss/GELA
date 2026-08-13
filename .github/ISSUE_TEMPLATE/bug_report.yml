@@ -1,0 +1,47 @@
+name: Bug report
+description: Report reproducible incorrect GELA behaviour
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private logs, or personal paths.
+  - type: input
+    id: version
+    attributes:
+      label: GELA version
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Include the exact spoken phrase for recognition problems.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized relevant logs
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed credentials, usernames, and unrelated personal data.
+          required: true
+        - label: I searched existing issues.
+          required: true

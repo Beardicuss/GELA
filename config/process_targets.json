@@ -1,0 +1,19 @@
+{
+  "Adobe Acrobat": ["Acrobat"],
+  "Adobe Photoshop 2025": ["Photoshop"],
+  "Calculator": ["CalculatorApp"],
+  "Discord": ["Discord"],
+  "Epic Games Launcher": ["EpicGamesLauncher"],
+  "Google Chrome": ["chrome"],
+  "Microsoft Edge": ["msedge"],
+  "Notepad": ["Notepad"],
+  "Outlook 2013": ["OUTLOOK"],
+  "Paint": ["mspaint"],
+  "PowerPoint 2013": ["POWERPNT"],
+  "Steam": ["steam"],
+  "Telegram Desktop": ["Telegram"],
+  "Ubisoft Connect": ["UbisoftConnect"],
+  "Visual Studio Code": ["Code"],
+  "VLC media player": ["vlc"],
+  "Word 2013": ["WINWORD"]
+}

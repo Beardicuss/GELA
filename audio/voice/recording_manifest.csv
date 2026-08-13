@@ -1,0 +1,11 @@
+line_id,event,text_ka,delivery,raw_filename,processed_filename
+vo_ready_001,ready,გისმენ.,Short and attentive; neutral-friendly.,vo_ready_001.wav,vo_ready_001.wav
+vo_launch_success_001,launch_success,შესრულებულია.,Brief confirmation; confident and warm.,vo_launch_success_001.wav,vo_launch_success_001.wav
+vo_command_not_understood_001,command_not_understood,ვერ გავიგე. კიდევ ერთხელ მითხარი.,Helpful; never annoyed; slight pause after the first sentence.,vo_command_not_understood_001.wav,vo_command_not_understood_001.wav
+vo_launch_failed_001,launch_failed,პროგრამის გახსნა ვერ მოხერხდა.,Calm and informative; not alarming.,vo_launch_failed_001.wav,vo_launch_failed_001.wav
+vo_microphone_error_001,microphone_error,მიკროფონთან კავშირი ვერ დამყარდა.,Clear technical warning; calm.,vo_microphone_error_001.wav,vo_microphone_error_001.wav
+vo_startup_ready_001,startup_ready,გელა მზად არის.,Friendly startup confirmation.,vo_startup_ready_001.wav,vo_startup_ready_001.wav
+vo_already_running_001,already_running,უკვე გაშვებულია.,Brief neutral status; no application name.,vo_already_running_001.wav,vo_already_running_001.wav
+vo_already_stopped_001,already_stopped,უკვე დახურულია.,Brief neutral status; no application name.,vo_already_stopped_001.wav,vo_already_stopped_001.wav
+vo_already_on_001,already_on,უკვე ჩართულია.,Brief neutral status.,vo_already_on_001.wav,vo_already_on_001.wav
+vo_already_off_001,already_off,უკვე გამორთულია.,Brief neutral status.,vo_already_off_001.wav,vo_already_off_001.wav

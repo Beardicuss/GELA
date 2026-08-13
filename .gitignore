@@ -1,0 +1,62 @@
+# Python environments and caches
+.venv/
+.venv-*/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+
+# Build and release products
+build/
+dist/
+release/
+*.spec.bak
+*.exe
+*.msi
+*.zip
+
+# Large third-party speech models (downloaded separately)
+models/*
+!models/.gitkeep
+
+# Runtime and machine-local state
+logs/
+runtime/
+*.log
+config/apps.json
+config/alias_archive.json
+config/vocabulary_audit.json
+config/learned_process_targets.json
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# micro:bit generated firmware and serial captures
+microbit/firmware/*.hex
+microbit/firmware/*.uf2
+microbit/captures/*
+!microbit/firmware/.gitkeep
+!microbit/captures/.gitkeep

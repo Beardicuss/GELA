@@ -1,0 +1,21 @@
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ps1 text eol=crlf
+*.iss text eol=crlf
+*.wav binary
+*.png binary
+*.ico binary
+*.onnx binary
+*.fst binary
+*.mdl binary
+*.hex binary
+*.uf2 binary
+
+# Keep generated archives and models out of GitHub language statistics.
+models/** linguist-vendored
+audio/voice/** linguist-vendored

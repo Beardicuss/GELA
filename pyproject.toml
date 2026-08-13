@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple-voice-assistant"
+version = "1.5.2"
+description = "Offline Windows voice controller using Vosk and Omnilingual ASR"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "certifi==2026.7.22",
+    "Pillow==12.3.0",
+    "pystray==0.19.5",
+    "sounddevice==0.5.3",
+    "sherpa-onnx==1.13.4",
+    "vosk==0.3.45",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "pyinstaller==6.15.0"]
+
+[project.scripts]
+voice-assistant = "voice_assistant.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

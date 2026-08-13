@@ -1,0 +1,55 @@
+{
+  "audio": {
+    "device_name_contains": "Microphone 2- USB Microphone",
+    "sample_rate": 16000,
+    "channels": 1,
+    "block_size": 1600,
+    "fallback_to_default_input": true,
+    "device_check_interval_seconds": 5.0,
+    "resume_gap_seconds": 10.0
+  },
+  "models": {
+    "en": "models/vosk-model-small-en-us-0.15",
+    "ka": "models/vosk-model-small-ka-0.42",
+    "command": "models/omnilingual-asr-300m-int8"
+  },
+  "catalog": {
+    "auto_refresh": true,
+    "interval_seconds": 3600,
+    "refresh_on_start": true
+  },
+  "question_answering": {
+    "enabled": false,
+    "endpoint": "http://127.0.0.1:11434/api/generate",
+    "model": "qwen2.5:3b",
+    "request_timeout_seconds": 60.0,
+    "question_timeout_seconds": 12.0,
+    "max_answer_characters": 2000
+  },
+  "online_services": {
+    "weather_enabled": false,
+    "wikipedia_enabled": false,
+    "location_name": "Gori, Shida Kartli",
+    "latitude": 41.98532,
+    "longitude": 44.1129,
+    "request_timeout_seconds": 10.0,
+    "query_timeout_seconds": 12.0,
+    "max_answer_characters": 2000
+  },
+  "background": {
+    "language": "ka",
+    "wake_phrases": ["გელა"],
+    "wake_confidence": 0.85,
+    "command_confidence": 0.65,
+    "confirmation_response_confidence": 0.65,
+    "ambiguity_margin": 0.12,
+    "vad_min_rms": 180,
+    "vad_noise_ratio": 3.0,
+    "vad_hangover_blocks": 8,
+    "command_timeout_seconds": 6.0,
+    "one_sentence_commands": true,
+    "command_retry_attempts": 1,
+    "cooldown_seconds": 2.0,
+    "retry_seconds": 5.0
+  }
+}

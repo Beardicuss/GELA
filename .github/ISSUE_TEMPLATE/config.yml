@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://softcurse-website.pages.dev/
+    about: Report vulnerabilities privately, not in a public issue.

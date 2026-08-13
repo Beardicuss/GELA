@@ -1,0 +1,29 @@
+GELA — WINDOWS PORTABLE RELEASE
+Designed and developed by Softcurse Systems
+https://softcurse-website.pages.dev/
+
+1. Extract the entire Gela folder from Gela-Windows-x64.zip.
+2. Keep every file and the _internal folder together.
+3. Double-click Gela.exe. Its icon appears in the Windows system tray.
+4. Right-click the tray icon and enable "Start with Windows" if desired.
+5. Say "გელა", wait for "გისმენ", then speak a command.
+
+Do not run Gela.exe directly from inside the ZIP file.
+Do not move only Gela.exe; it requires the adjacent _internal folder.
+
+To remove Gela:
+1. Right-click its tray icon and disable "Start with Windows".
+2. Choose "Exit Gela".
+3. Delete the extracted Gela folder.
+
+Gela works offline. Windows may request microphone access on first launch.
+Personal settings, aliases, catalog data, and logs are kept in %LOCALAPPDATA%\Gela and survive replacement of the application folder.
+
+INSTALLER AND UPDATES
+Use Gela-Setup-1.5.2-x64.exe for a normal installation. A newer Gela installer updates the existing installation in place and preserves personal data. The uninstaller asks whether to keep or remove personal data and defaults to keeping it.
+
+OPTIONAL LOCAL QUESTIONS
+Local question answering is off by default. To use it, install and run an Ollama-compatible local model service, set the model name under question_answering in %LOCALAPPDATA%\Gela\config\settings.json, then enable "Local question answering" from Gela's tray menu. Gela rejects non-local endpoints.
+
+OPTIONAL ONLINE SERVICES
+Weather and Wikipedia are off by default. Enable either one under "Online services" in the tray. Weather is configured for Gori, Shida Kartli; edit the online_services location name and coordinates in settings if required. Only explicit requests use the network.

@@ -1,0 +1,16 @@
+{
+  "Steam": ["steam"],
+  "Discord": ["discord"],
+  "Copilot": ["copilot"],
+  "WhatsApp": ["what app", "whats app"],
+  "Ubisoft Connect": ["ubisoft"],
+  "Outlook 2013": ["outlook"],
+  "Paint": ["paint"],
+  "PowerShell 7 (x64)": ["power shell"],
+  "Word 2013": ["word"],
+  "ELDEN RING": ["elder ring"],
+  "ELDEN RING NIGHTREIGN": ["elder ring night rain", "night rain"],
+  "DARK SOULS™ II: Scholar of the First Sin": ["dark souls two"],
+  "DARK SOULS™ III": ["dark souls three"],
+  "Mistfall Hunter": ["mist fall hunter", "mist fall"]
+}

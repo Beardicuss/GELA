@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "responses": {
+    "ready": "audio/voice/processed/vo_ready_001.wav",
+    "launch_success": "audio/voice/processed/vo_launch_success_001.wav",
+    "command_not_understood": "audio/voice/processed/vo_command_not_understood_001.wav",
+    "launch_failed": "audio/voice/processed/vo_launch_failed_001.wav",
+    "already_running": "audio/voice/processed/vo_already_running_001.wav",
+    "already_stopped": "audio/voice/processed/vo_already_stopped_001.wav",
+    "already_on": "audio/voice/processed/vo_already_on_001.wav",
+    "already_off": "audio/voice/processed/vo_already_off_001.wav",
+    "microphone_error": "audio/voice/processed/vo_microphone_error_001.wav",
+    "startup_ready": "audio/voice/processed/vo_startup_ready_001.wav"
+  }
+}
