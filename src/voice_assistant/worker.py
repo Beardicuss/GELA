@@ -552,10 +552,13 @@ class BackgroundAssistant:
                     is_voice, rms = vad.process(audio)
                     if is_voice:
                         wake_audio.extend(audio)
-                    recognizer_done = wake_recognizer.AcceptWaveform(audio) if is_voice else False
+                    # Vosk must receive the continuous stream.  Using VAD as a
+                    # gate can discard an entire quiet wake word before the
+                    # recognizer gets a chance to decode it.
+                    recognizer_done = wake_recognizer.AcceptWaveform(audio)
                     english_wake_done = (
                         english_wake_recognizer.AcceptWaveform(audio)
-                        if is_voice and english_wake_recognizer is not None
+                        if english_wake_recognizer is not None
                         else False
                     )
                     if self.settings.background.one_sentence_commands and recognizer_done:
@@ -572,11 +575,11 @@ class BackgroundAssistant:
                         if segment.text:
                             english_wake_segments.append(segment)
                         english_wake_recognizer = self._english_recognizer()
-                    boundary = wake_boundary.observe(
-                        is_voice,
-                        recognizer_done
-                        and not self.settings.background.one_sentence_commands,
-                    )
+                    if recognizer_done:
+                        boundary = "complete"
+                        wake_boundary.reset()
+                    else:
+                        boundary = wake_boundary.observe(is_voice)
                     if is_voice:
                         wake_peak_rms = max(wake_peak_rms, rms)
                     if boundary in {"idle", "continue"}:
