@@ -56,6 +56,24 @@ from .online_services import OnlineServiceAction, OnlineServices, online_phrases
 LOG_PATH = USER_LOG_ROOT / "assistant.log"
 ENGLISH_ALIASES_PATH = USER_CONFIG_ROOT / "english_aliases.json"
 MUTEX_NAME = "Local\\SimpleVoiceAssistantWorker"
+EMBEDDED_WAKE_MIN_CONFIDENCE = 0.75
+
+
+def exact_embedded_wake(
+    result: RecognitionResult,
+    wake_phrases: list[str],
+    minimum_confidence: float,
+) -> tuple[str, float] | None:
+    """Accept an exact wake token when Vosk inserts unrelated words before it."""
+    match = max(
+        (
+            (phrase, matched_phrase_confidence(result, phrase))
+            for phrase in wake_phrases
+        ),
+        key=lambda candidate: candidate[1],
+        default=("", 0.0),
+    )
+    return match if match[0] and match[1] >= minimum_confidence else None
 
 
 class WorkerControls:
@@ -596,14 +614,38 @@ class BackgroundAssistant:
                         else None
                     )
                     wake_split = split_wake_command(result, wake_phrases)
-                    wake_phrase = wake_split[0] if wake_split else ""
-                    confidence = wake_split[1] if wake_split else result.confidence
+                    embedded_wake = (
+                        exact_embedded_wake(
+                            result,
+                            wake_phrases,
+                            max(
+                                self.settings.background.wake_confidence,
+                                EMBEDDED_WAKE_MIN_CONFIDENCE,
+                            ),
+                        )
+                        if wake_split is None
+                        else None
+                    )
+                    wake_phrase = (
+                        wake_split[0]
+                        if wake_split
+                        else embedded_wake[0] if embedded_wake else ""
+                    )
+                    confidence = (
+                        wake_split[1]
+                        if wake_split
+                        else embedded_wake[1] if embedded_wake else result.confidence
+                    )
                     wake_command = wake_split[2] if wake_split else RecognitionResult("", 0.0)
-                    eligible_wake = bool(wake_split) and (
+                    eligible_wake = bool(wake_split or embedded_wake) and (
                         not wake_command.text
                         or self.settings.background.one_sentence_commands
                     )
-                    evaluation = "vosk endpoint" if boundary == "complete" else "VAD finalization"
+                    evaluation = (
+                        "embedded exact wake"
+                        if embedded_wake
+                        else "vosk endpoint" if boundary == "complete" else "VAD finalization"
+                    )
                     if eligible_wake and confidence >= self.settings.background.wake_confidence:
                         logging.info(
                             "Wake phrase recognized: %s (confidence=%.3f peak_rms=%.1f threshold=%.1f via=%s command=%s)",
