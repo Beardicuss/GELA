@@ -24,7 +24,6 @@ assistant. Speech recognition and normal computer control remain local.
 - [Architecture](docs/ARCHITECTURE.md)
 - [Testing](docs/TESTING.md)
 - [Roadmap](ROADMAP.md)
-- [micro:bit expansion plan](docs/MICROBIT_ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
@@ -156,7 +155,7 @@ Build the standalone, windowless Windows package with:
 
 The script runs the test suite, creates `dist\Gela\Gela.exe`, bundles both offline models and all runtime assets, then writes `release\Gela-Windows-x64.zip`. Extract the complete `Gela` folder before running it; `Gela.exe` depends on its adjacent `_internal` folder. Python does not need to be installed on the destination PC.
 
-For the normal installed release, run `scripts/build_installer.ps1`. It creates `release/Gela-Setup-1.5.2-x64.exe`, a per-user installer with Start-menu integration, optional desktop and sign-in shortcuts, and no administrator requirement. Running a newer installer with the same stable application ID performs an upgrade in place; binaries are replaced while `%LOCALAPPDATA%\Gela` settings, aliases, profiles, routines, and logs remain untouched.
+For the normal installed release, run `scripts/build_installer.ps1`. It creates `release/Gela-Setup-1.6.0-x64.exe`, a per-user installer with Start-menu integration, optional desktop and sign-in shortcuts, and no administrator requirement. Running a newer installer with the same stable application ID performs an upgrade in place; binaries are replaced while `%LOCALAPPDATA%\Gela` settings, aliases, profiles, routines, and logs remain untouched.
 
 Uninstall from Windows Settings or the Start menu. The uninstaller asks whether to remove personal Gela data and defaults to preserving it. Choose removal only when a complete reset is intended. Public releases are built with `scripts/build_installer.ps1 -RequireSigning` after configuring `GELA_SIGNING_THUMBPRINT`; the pipeline requires SHA-256 Authenticode signatures, an RFC 3161 timestamp, and successful verification for both the application and installer. See `SIGNING.md`. Until a trusted Softcurse Systems certificate is supplied, local builds remain unsigned and Windows SmartScreen may show an unknown-publisher warning.
 

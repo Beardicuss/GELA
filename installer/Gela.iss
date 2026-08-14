@@ -1,5 +1,5 @@
 #define MyAppName "Gela Voice Assistant"
-#define MyAppVersion "1.5.2"
+#define MyAppVersion "1.6.0"
 #define MyAppPublisher "Softcurse Systems"
 #define MyAppURL "https://softcurse-website.pages.dev/"
 #define MyAppExeName "Gela.exe"

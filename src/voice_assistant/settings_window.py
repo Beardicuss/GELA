@@ -5,6 +5,7 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from .audio import InputDeviceChoice, _normalized_device_name, input_device_choices
 from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, load_settings
 from .storage import atomic_write_text
 
@@ -26,7 +27,10 @@ class SettingsWindow:
         )
         self.catalog_refresh = tk.BooleanVar(value=catalog["auto_refresh"])
         self.catalog_hours = tk.StringVar(value=f"{catalog['interval_seconds'] / 3600:g}")
-        self.microphone = tk.StringVar(value=audio["device_name_contains"])
+        self.saved_microphone = str(audio["device_name_contains"])
+        self.microphone = tk.StringVar()
+        self.microphone_status = tk.StringVar(value="მიკროფონები მოწმდება…")
+        self.microphone_choices: dict[str, InputDeviceChoice] = {}
         self.default_microphone = tk.BooleanVar(value=audio["fallback_to_default_input"])
         self.vad_min_rms = tk.StringVar(value=str(background["vad_min_rms"]))
         self.wake_confidence = tk.StringVar(value=str(background["wake_confidence"]))
@@ -49,6 +53,7 @@ class SettingsWindow:
             self.icon_image = tk.PhotoImage(file=str(icon_path))
             root.iconphoto(True, self.icon_image)
         self._build()
+        self._refresh_microphones(initial=True)
 
     @staticmethod
     def _row(parent, row: int, label: str, variable: tk.Variable, width: int = 32) -> None:
@@ -88,10 +93,27 @@ class SettingsWindow:
 
         audio = self._tab(notebook)
         notebook.add(audio, text="მიკროფონი")
-        self._row(audio, 0, "სასურველი მიკროფონის სახელი", self.microphone, 42)
-        ttk.Checkbutton(audio, text="სისტემის ნაგულისხმევ მიკროფონზე გადართვა, თუ არჩეული მიუწვდომელია", variable=self.default_microphone).grid(row=1, column=0, columnspan=2, sticky="w", pady=8)
-        self._row(audio, 2, "ხმის მინიმალური დონე (RMS)", self.vad_min_rms)
-        ttk.Label(audio, text="ზუსტი მნიშვნელობის დასადგენად გამოიყენეთ გამაღვიძებელი სიტყვის კალიბრაცია.", wraplength=620).grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(audio, text="არჩეული მიკროფონი").grid(row=0, column=0, sticky="w", pady=6)
+        selector = ttk.Frame(audio)
+        selector.grid(row=0, column=1, sticky="ew", padx=(16, 0), pady=6)
+        selector.columnconfigure(0, weight=1)
+        self.microphone_combo = ttk.Combobox(
+            selector,
+            textvariable=self.microphone,
+            state="readonly",
+            width=42,
+        )
+        self.microphone_combo.grid(row=0, column=0, sticky="ew")
+        self.microphone_combo.bind("<<ComboboxSelected>>", self._microphone_selected)
+        ttk.Button(selector, text="განახლება", command=self._refresh_microphones).grid(
+            row=0, column=1, padx=(8, 0)
+        )
+        ttk.Label(audio, textvariable=self.microphone_status, wraplength=620).grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(2, 8)
+        )
+        ttk.Checkbutton(audio, text="სისტემის ნაგულისხმევ მიკროფონზე გადართვა, თუ არჩეული მიუწვდომელია", variable=self.default_microphone).grid(row=2, column=0, columnspan=2, sticky="w", pady=8)
+        self._row(audio, 3, "ხმის მინიმალური დონე (RMS)", self.vad_min_rms)
+        ttk.Label(audio, text="სიაში ჩანს მხოლოდ ამჟამად დაკავშირებული მიკროფონები. ზუსტი RMS მნიშვნელობისთვის გამოიყენეთ გამაღვიძებელი სიტყვის კალიბრაცია.", wraplength=620).grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 0))
 
         recognition = self._tab(notebook)
         notebook.add(recognition, text="ამოცნობა")
@@ -118,6 +140,58 @@ class SettingsWindow:
         ttk.Button(buttons, text="გაუქმება", command=self.root.destroy).pack(side="right")
         ttk.Button(buttons, text="შენახვა", command=self._save).pack(side="right", padx=(0, 8))
 
+    def _refresh_microphones(self, initial: bool = False) -> None:
+        previous_name = self.saved_microphone if initial else self._selected_microphone_name()
+        try:
+            choices = input_device_choices()
+        except Exception as exc:
+            self.microphone_combo.configure(values=(), state="disabled")
+            self.microphone.set("")
+            self.microphone_choices = {}
+            self.microphone_status.set(f"მიკროფონების სკანირება ვერ შესრულდა: {exc}")
+            return
+
+        self.microphone_choices = {
+            choice.name + (" — ნაგულისხმევი" if choice.is_default else ""): choice
+            for choice in choices
+        }
+        labels = list(self.microphone_choices)
+        self.microphone_combo.configure(values=labels, state="readonly" if labels else "disabled")
+        if not labels:
+            self.microphone.set("")
+            self.microphone_status.set("Windows-ში დაკავშირებული მიკროფონი ვერ მოიძებნა.")
+            return
+
+        normalized_previous = _normalized_device_name(previous_name)
+        selected_label = next(
+            (
+                label
+                for label, choice in self.microphone_choices.items()
+                if _normalized_device_name(choice.name) == normalized_previous
+            ),
+            labels[0],
+        )
+        self.microphone.set(selected_label)
+        selected = self.microphone_choices[selected_label]
+        if initial and normalized_previous != _normalized_device_name(selected.name):
+            self.microphone_status.set(
+                f"შენახული მიკროფონი მიუწვდომელია; არჩეულია {selected.name}."
+            )
+        else:
+            self._microphone_selected()
+
+    def _selected_microphone_name(self) -> str:
+        choice = self.microphone_choices.get(self.microphone.get())
+        return choice.name if choice is not None else ""
+
+    def _microphone_selected(self, _event=None) -> None:
+        choice = self.microphone_choices.get(self.microphone.get())
+        if choice is None:
+            self.microphone_status.set("აირჩიეთ დაკავშირებული მიკროფონი.")
+            return
+        suffix = " — Windows-ის ნაგულისხმევი" if choice.is_default else ""
+        self.microphone_status.set(f"მზადაა: {choice.name}{suffix}")
+
     def _save(self) -> None:
         try:
             wake = self.wake_phrase.get().strip()
@@ -137,7 +211,14 @@ class SettingsWindow:
                 command_confidence=float(self.command_confidence.get()),
                 command_timeout_seconds=float(self.command_timeout.get()),
             )
-            audio.update(device_name_contains=self.microphone.get().strip(), fallback_to_default_input=self.default_microphone.get())
+            selected_microphone = self._selected_microphone_name()
+            available = {
+                _normalized_device_name(choice.name)
+                for choice in input_device_choices()
+            }
+            if not selected_microphone or _normalized_device_name(selected_microphone) not in available:
+                raise ValueError("არჩეული მიკროფონი აღარ არის დაკავშირებული. დააჭირეთ „განახლებას“.")
+            audio.update(device_name_contains=selected_microphone, fallback_to_default_input=self.default_microphone.get())
             catalog.update(auto_refresh=self.catalog_refresh.get(), interval_seconds=float(self.catalog_hours.get()) * 3600)
             qa.update(enabled=self.local_qa.get(), model=self.local_model.get().strip(), endpoint=self.local_endpoint.get().strip())
             online.update(weather_enabled=self.weather.get(), wikipedia_enabled=self.wikipedia.get(), location_name=self.location.get().strip(), latitude=float(self.latitude.get()), longitude=float(self.longitude.get()))

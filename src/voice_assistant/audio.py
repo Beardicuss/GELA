@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 from array import array
 import re
 
 import sounddevice as sd
+
+
+@dataclass(frozen=True)
+class InputDeviceChoice:
+    name: str
+    index: int
+    channels: int
+    is_default: bool = False
 
 
 def _normalized_device_name(name: str) -> str:
@@ -20,26 +29,87 @@ def input_devices() -> list[tuple[int, Mapping[str, Any]]]:
     ]
 
 
+def _default_input(
+    devices: list[tuple[int, Mapping[str, Any]]],
+) -> tuple[int, Mapping[str, Any]] | None:
+    default_index = int(sd.default.device[0])
+    return next((item for item in devices if item[0] == default_index), None)
+
+
+def _host_api_name(device: Mapping[str, Any]) -> str:
+    try:
+        return str(sd.query_hostapis(int(device["hostapi"]))["name"]).casefold()
+    except (KeyError, TypeError, ValueError, IndexError):
+        return ""
+
+
+def _selectable_input_devices(
+    devices: list[tuple[int, Mapping[str, Any]]],
+) -> list[tuple[int, Mapping[str, Any]]]:
+    """Hide driver pins and generic aliases that are not real user microphones."""
+    wasapi = [item for item in devices if "wasapi" in _host_api_name(item[1])]
+    if wasapi:
+        return wasapi
+    generic_names = {
+        "microsoftsoundmapperinput",
+        "primarysoundcapturedriver",
+    }
+    mme = [
+        item
+        for item in devices
+        if _host_api_name(item[1]) == "mme"
+        and _normalized_device_name(str(item[1]["name"])) not in generic_names
+    ]
+    if mme:
+        return mme
+    return [
+        item
+        for item in devices
+        if _normalized_device_name(str(item[1]["name"])) not in generic_names
+    ]
+
+
+def input_device_choices() -> list[InputDeviceChoice]:
+    """Return only microphones currently reported by Windows, deduplicated by name."""
+    devices = input_devices()
+    default = _default_input(devices)
+    default_name = _normalized_device_name(str(default[1]["name"])) if default is not None else ""
+    grouped: dict[str, list[tuple[int, Mapping[str, Any]]]] = {}
+    for item in _selectable_input_devices(devices):
+        grouped.setdefault(_normalized_device_name(str(item[1]["name"])), []).append(item)
+
+    choices: list[InputDeviceChoice] = []
+    for matches in grouped.values():
+        selected = matches[0]
+        normalized_name = _normalized_device_name(str(selected[1]["name"]))
+        choices.append(
+            InputDeviceChoice(
+                name=str(selected[1]["name"]),
+                index=selected[0],
+                channels=int(selected[1]["max_input_channels"]),
+                is_default=normalized_name == default_name,
+            )
+        )
+    return sorted(choices, key=lambda choice: (not choice.is_default, choice.name.casefold()))
+
+
 def find_input_device(
     name_fragment: str,
     fallback_to_default: bool = False,
 ) -> tuple[int, Mapping[str, Any]]:
+    devices = input_devices()
     fragment = _normalized_device_name(name_fragment)
     matches = [
         (index, device)
-        for index, device in input_devices()
+        for index, device in devices
         if fragment in _normalized_device_name(str(device["name"]))
     ]
     if not matches:
         if fallback_to_default:
-            default_input = int(sd.default.device[0])
-            fallback = next(
-                ((index, device) for index, device in input_devices() if index == default_input),
-                None,
-            )
+            fallback = _default_input(devices)
             if fallback is not None:
                 return fallback
-        available = ", ".join(str(device["name"]) for _, device in input_devices()) or "none"
+        available = ", ".join(choice.name for choice in input_device_choices()) or "none"
         raise RuntimeError(
             f"No input device matches {name_fragment!r}. Available input devices: {available}"
         )
@@ -47,9 +117,13 @@ def find_input_device(
     default_match = next((match for match in matches if match[0] == default_input), None)
     if default_match is not None:
         return default_match
-    if len(matches) > 1:
-        names = ", ".join(f"{index}: {device['name']}" for index, device in matches)
-        raise RuntimeError(f"Multiple input devices match {name_fragment!r}: {names}")
+    exact = [
+        match
+        for match in matches
+        if _normalized_device_name(str(match[1]["name"])) == fragment
+    ]
+    if exact:
+        return exact[0]
     return matches[0]
 
 

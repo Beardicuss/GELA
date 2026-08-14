@@ -34,5 +34,4 @@ and robot transports without duplicating command execution logic.
 - `audio/voice/`: recorded Georgian responses and their manifest.
 - `scripts/`: development, model, voice, build, signing, and release tooling.
 - `installer/`: Inno Setup package definition.
-- `docs/`: architecture and hardware plans.
-- `microbit/`: reserved for future board source and generated-output placeholders.
+- `docs/`: architecture and testing documentation.

@@ -37,7 +37,7 @@ if ($signingEnabled) {
 & $compiler (Join-Path $projectRoot "installer\Gela.iss")
 if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
 
-$installer = Join-Path $projectRoot "release\Gela-Setup-1.5.2-x64.exe"
+$installer = Join-Path $projectRoot "release\Gela-Setup-1.6.0-x64.exe"
 if (-not (Test-Path -LiteralPath $installer)) { throw "Installer output is missing" }
 if ($signingEnabled) {
     & (Join-Path $PSScriptRoot "sign_artifacts.ps1") -Path $installer -Thumbprint $signingThumbprint
@@ -55,7 +55,7 @@ $manifest = [ordered]@{
     product = "Gela Voice Assistant"
     publisher = "Softcurse Systems"
     website = "https://softcurse-website.pages.dev/"
-    version = "1.5.2"
+    version = "1.6.0"
     architecture = "x64"
     signing = [ordered]@{
         signed = $signingEnabled

@@ -7,9 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_release_versions_are_consistent() -> None:
-    assert __version__ == "1.5.2"
-    assert 'version = "1.5.2"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert '#define MyAppVersion "1.5.2"' in (ROOT / "installer/Gela.iss").read_text(encoding="utf-8")
+    assert __version__ == "1.6.0"
+    assert 'version = "1.6.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert '#define MyAppVersion "1.6.0"' in (ROOT / "installer/Gela.iss").read_text(encoding="utf-8")
 
 
 def test_installer_is_per_user_and_preserves_data_by_default() -> None:

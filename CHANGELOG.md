@@ -3,12 +3,17 @@
 All notable changes are recorded here. Versions follow semantic versioning where
 practical.
 
-## Unreleased
+## 1.6.0 - 2026-08-14
 
-### Planned
+### Added
 
-- micro:bit V2 USB controller and status prototype.
-- Transport-neutral peripheral protocol for future wireless and robot devices.
+- Georgian Settings microphone dropdown populated from microphones currently detected by Windows.
+- Manual refresh action and clear status when a previously saved microphone is disconnected.
+
+### Changed
+
+- Hidden driver pins and duplicate backend aliases are excluded from the microphone list.
+- Removed the unused micro:bit roadmap and placeholder directories.
 
 ## 1.5.2 - 2026-08-10
 
