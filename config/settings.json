@@ -39,7 +39,7 @@
   "background": {
     "language": "ka",
     "wake_phrases": ["გელა"],
-    "wake_confidence": 0.85,
+    "wake_confidence": 0.55,
     "command_confidence": 0.65,
     "confirmation_response_confidence": 0.65,
     "ambiguity_margin": 0.12,
