@@ -5,8 +5,12 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from .audio import _normalized_device_name, input_device_names
 from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, load_settings
 from .storage import atomic_write_text
+
+
+AUTOMATIC_MICROPHONE = "სისტემის ნაგულისხმევი მიკროფონი (ავტომატური)"
 
 
 class SettingsWindow:
@@ -26,7 +30,19 @@ class SettingsWindow:
         )
         self.catalog_refresh = tk.BooleanVar(value=catalog["auto_refresh"])
         self.catalog_hours = tk.StringVar(value=f"{catalog['interval_seconds'] / 3600:g}")
-        self.microphone = tk.StringVar(value=audio["device_name_contains"])
+        self.detected_microphones = self._detect_microphones()
+        configured_microphone = audio["device_name_contains"].strip()
+        configured_normalized = _normalized_device_name(configured_microphone)
+        selected_microphone = next(
+            (
+                name
+                for name in self.detected_microphones
+                if configured_normalized
+                and configured_normalized in _normalized_device_name(name)
+            ),
+            AUTOMATIC_MICROPHONE,
+        )
+        self.microphone = tk.StringVar(value=selected_microphone)
         self.default_microphone = tk.BooleanVar(value=audio["fallback_to_default_input"])
         self.vad_min_rms = tk.StringVar(value=str(background["vad_min_rms"]))
         self.wake_confidence = tk.StringVar(value=str(background["wake_confidence"]))
@@ -62,6 +78,25 @@ class SettingsWindow:
         frame.columnconfigure(1, weight=1)
         return frame
 
+    @staticmethod
+    def _detect_microphones() -> list[str]:
+        try:
+            return input_device_names()
+        except Exception:
+            return []
+
+    def _refresh_microphones(self) -> None:
+        detected = self._detect_microphones()
+        self.detected_microphones = detected
+        self.microphone_box.configure(values=(AUTOMATIC_MICROPHONE, *detected))
+        if self.microphone.get() not in detected:
+            self.microphone.set(AUTOMATIC_MICROPHONE)
+        self.microphone_status.configure(
+            text=f"აღმოჩენილია {len(detected)} მიკროფონი"
+            if detected
+            else "მიკროფონი ვერ მოიძებნა"
+        )
+
     def _build(self) -> None:
         outer = ttk.Frame(self.root, padding=14)
         outer.pack(fill="both", expand=True)
@@ -88,10 +123,34 @@ class SettingsWindow:
 
         audio = self._tab(notebook)
         notebook.add(audio, text="მიკროფონი")
-        self._row(audio, 0, "სასურველი მიკროფონის სახელი", self.microphone, 42)
-        ttk.Checkbutton(audio, text="სისტემის ნაგულისხმევ მიკროფონზე გადართვა, თუ არჩეული მიუწვდომელია", variable=self.default_microphone).grid(row=1, column=0, columnspan=2, sticky="w", pady=8)
-        self._row(audio, 2, "ხმის მინიმალური დონე (RMS)", self.vad_min_rms)
-        ttk.Label(audio, text="ზუსტი მნიშვნელობის დასადგენად გამოიყენეთ გამაღვიძებელი სიტყვის კალიბრაცია.", wraplength=620).grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(audio, text="მიკროფონი").grid(row=0, column=0, sticky="w", pady=6)
+        microphone_controls = ttk.Frame(audio)
+        microphone_controls.grid(row=0, column=1, sticky="ew", padx=(16, 0), pady=6)
+        microphone_controls.columnconfigure(0, weight=1)
+        self.microphone_box = ttk.Combobox(
+            microphone_controls,
+            textvariable=self.microphone,
+            values=(AUTOMATIC_MICROPHONE, *self.detected_microphones),
+            state="readonly",
+        )
+        self.microphone_box.grid(row=0, column=0, sticky="ew")
+        ttk.Button(
+            microphone_controls,
+            text="განახლება",
+            command=self._refresh_microphones,
+        ).grid(row=0, column=1, padx=(8, 0))
+        self.microphone_status = ttk.Label(
+            audio,
+            text=(
+                f"აღმოჩენილია {len(self.detected_microphones)} მიკროფონი"
+                if self.detected_microphones
+                else "მიკროფონი ვერ მოიძებნა"
+            ),
+        )
+        self.microphone_status.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 4))
+        ttk.Checkbutton(audio, text="სისტემის ნაგულისხმევ მიკროფონზე გადართვა, თუ არჩეული მიუწვდომელია", variable=self.default_microphone).grid(row=2, column=0, columnspan=2, sticky="w", pady=8)
+        self._row(audio, 3, "ხმის მინიმალური დონე (RMS)", self.vad_min_rms)
+        ttk.Label(audio, text="ზუსტი მნიშვნელობის დასადგენად გამოიყენეთ გამაღვიძებელი სიტყვის კალიბრაცია.", wraplength=620).grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 0))
 
         recognition = self._tab(notebook)
         notebook.add(recognition, text="ამოცნობა")
@@ -137,7 +196,17 @@ class SettingsWindow:
                 command_confidence=float(self.command_confidence.get()),
                 command_timeout_seconds=float(self.command_timeout.get()),
             )
-            audio.update(device_name_contains=self.microphone.get().strip(), fallback_to_default_input=self.default_microphone.get())
+            selected_microphone = self.microphone.get().strip()
+            audio.update(
+                device_name_contains=(
+                    "" if selected_microphone == AUTOMATIC_MICROPHONE else selected_microphone
+                ),
+                fallback_to_default_input=(
+                    True
+                    if selected_microphone == AUTOMATIC_MICROPHONE
+                    else self.default_microphone.get()
+                ),
+            )
             catalog.update(auto_refresh=self.catalog_refresh.get(), interval_seconds=float(self.catalog_hours.get()) * 3600)
             qa.update(enabled=self.local_qa.get(), model=self.local_model.get().strip(), endpoint=self.local_endpoint.get().strip())
             online.update(weather_enabled=self.weather.get(), wikipedia_enabled=self.wikipedia.get(), location_name=self.location.get().strip(), latitude=float(self.latitude.get()), longitude=float(self.longitude.get()))

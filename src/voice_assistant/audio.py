@@ -20,30 +20,63 @@ def input_devices() -> list[tuple[int, Mapping[str, Any]]]:
     ]
 
 
+def input_device_names() -> list[str]:
+    """Return connected Windows microphone endpoints without backend pseudo-devices."""
+    names: list[str] = []
+    seen: set[str] = set()
+    host_apis = sd.query_hostapis()
+    for _, device in input_devices():
+        name = str(device["name"]).strip()
+        host_api_index = int(device.get("hostapi", -1))
+        host_api_name = (
+            str(host_apis[host_api_index]["name"])
+            if 0 <= host_api_index < len(host_apis)
+            else ""
+        )
+        if host_api_name and host_api_name.casefold() != "mme":
+            continue
+        lowered_name = name.casefold()
+        if "microphone" not in lowered_name and not lowered_name.startswith("mic "):
+            continue
+        normalized = _normalized_device_name(name)
+        if name and normalized not in seen:
+            names.append(name)
+            seen.add(normalized)
+    return names
+
+
 def find_input_device(
     name_fragment: str,
     fallback_to_default: bool = False,
 ) -> tuple[int, Mapping[str, Any]]:
     fragment = _normalized_device_name(name_fragment)
+    devices = input_devices()
+    default_input = int(sd.default.device[0])
+    if not fragment:
+        default_device = next(
+            ((index, device) for index, device in devices if index == default_input),
+            None,
+        )
+        if default_device is not None:
+            return default_device
+        if devices:
+            return devices[0]
+        raise RuntimeError("No microphone input devices found")
     matches = [
         (index, device)
-        for index, device in input_devices()
+        for index, device in devices
         if fragment in _normalized_device_name(str(device["name"]))
     ]
     if not matches:
         if fallback_to_default:
             default_input = int(sd.default.device[0])
-            fallback = next(
-                ((index, device) for index, device in input_devices() if index == default_input),
-                None,
-            )
+            fallback = next(((index, device) for index, device in devices if index == default_input), None)
             if fallback is not None:
                 return fallback
-        available = ", ".join(str(device["name"]) for _, device in input_devices()) or "none"
+        available = ", ".join(str(device["name"]) for _, device in devices) or "none"
         raise RuntimeError(
             f"No input device matches {name_fragment!r}. Available input devices: {available}"
         )
-    default_input = int(sd.default.device[0])
     default_match = next((match for match in matches if match[0] == default_input), None)
     if default_match is not None:
         return default_match
