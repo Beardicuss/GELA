@@ -67,6 +67,8 @@ The same operations are available for the currently active window:
 
 English forms include `switch to chrome`, `focus chrome`, `minimize chrome`, `maximize chrome`, and `restore chrome`. Mixed Georgian/English forms are also supported for every named-window operation. Omnilingual ASR recognizes the natural Georgian forms without requiring them to exist in Vosk's dictionary. Named window operations use explicit or inferred executable process mappings and fall back to matching a visible catalog window title.
 
+Restore, focus, and maximize commands also recover applications hidden in the Windows notification area when the application keeps a standard restorable main window. Helper, overlay, and background-only windows are excluded.
+
 ## Folders
 
 - `გახსენი ჩამოტვირთვები`

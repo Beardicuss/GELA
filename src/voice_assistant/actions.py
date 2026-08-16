@@ -20,6 +20,7 @@ from .game_lifecycle import (
     is_gameplay_process,
     mark_game_stopped,
 )
+from .launcher import launch
 from .process_targets import (
     DEFAULT_PROCESS_TARGETS_PATH,
     LEARNED_PROCESS_TARGETS_PATH,
@@ -196,7 +197,12 @@ def build_action_phrases(
             separators=(",", ":"),
         )
         close_action = SystemAction(app_name, "close_app", close_value)
-        window_value = close_value
+        window_target = {
+            **target,
+            "launch_type": entry.launch_type,
+            "launch_value": entry.launch_value,
+        }
+        window_value = json.dumps(window_target, ensure_ascii=False, separators=(",", ":"))
         for alias in aliases:
             normalized_alias = normalize_phrase(alias)
             for prefix in close_prefixes:
@@ -395,7 +401,7 @@ def _close_process_windows(value: str, allow_force: bool = True) -> None:
         raise RuntimeError("Application could not be closed completely")
 
 
-def _matching_title_windows(app_name: str) -> list[int]:
+def _matching_title_windows(app_name: str, *, include_hidden: bool = False) -> list[int]:
     target = normalize_phrase(app_name)
     if len(target) < 3:
         return []
@@ -404,8 +410,13 @@ def _matching_title_windows(app_name: str) -> list[int]:
 
     @callback_type
     def callback(hwnd, _lparam):
-        if not ctypes.windll.user32.IsWindowVisible(hwnd):
-            return True
+        visible = bool(ctypes.windll.user32.IsWindowVisible(hwnd))
+        if not visible:
+            if not include_hidden:
+                return True
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
+            if style & 0x00C00000 != 0x00C00000:
+                return True
         length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
         if length <= 0:
             return True
@@ -420,10 +431,19 @@ def _matching_title_windows(app_name: str) -> list[int]:
     return matches
 
 
-def _matching_profile_title_windows(app_name: str, window_titles: list[str]) -> list[int]:
+def _matching_profile_title_windows(
+    app_name: str,
+    window_titles: list[str],
+    *,
+    include_hidden: bool = False,
+) -> list[int]:
     matches: list[int] = []
     for title in [app_name, *window_titles]:
-        matches.extend(hwnd for hwnd in _matching_title_windows(title) if hwnd not in matches)
+        matches.extend(
+            hwnd
+            for hwnd in _matching_title_windows(title, include_hidden=include_hidden)
+            if hwnd not in matches
+        )
     return matches
 
 
@@ -603,6 +623,11 @@ def _find_window_for_processes(value: str) -> int:
             return True
         if ctypes.windll.user32.GetWindowTextLengthW(hwnd) <= 0:
             return True
+        length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+        buffer = ctypes.create_unicode_buffer(length + 1)
+        ctypes.windll.user32.GetWindowTextW(hwnd, buffer, length + 1)
+        if normalize_phrase(buffer.value) in {"untitled", "default ime", "msctfime ui"}:
+            return True
         process_id = ctypes.c_ulong()
         ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
         if _process_name(process_id.value) in allowed:
@@ -613,6 +638,35 @@ def _find_window_for_processes(value: str) -> int:
     ctypes.windll.user32.EnumWindows(callback, 0)
     if not matches:
         raise RuntimeError("Application is not running or has no visible window")
+    return matches[0]
+
+
+def _find_hidden_window_for_processes(value: str) -> int:
+    """Find a tray-hidden main window while rejecting helper/overlay windows."""
+    allowed = _validated_process_names(value)
+    matches: list[int] = []
+    callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+    ws_caption = 0x00C00000
+
+    @callback_type
+    def callback(hwnd, _lparam):
+        if ctypes.windll.user32.IsWindowVisible(hwnd):
+            return True
+        if ctypes.windll.user32.GetWindowTextLengthW(hwnd) <= 0:
+            return True
+        style = ctypes.windll.user32.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
+        if style & ws_caption != ws_caption:
+            return True
+        process_id = ctypes.c_ulong()
+        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
+        if _process_name(process_id.value) in allowed:
+            matches.append(int(hwnd))
+            return False
+        return True
+
+    ctypes.windll.user32.EnumWindows(callback, 0)
+    if not matches:
+        raise RuntimeError("Application is not running or has no restorable window")
     return matches[0]
 
 
@@ -633,7 +687,49 @@ def _show_window(hwnd: int, operation: str) -> None:
     ctypes.windll.user32.ShowWindowAsync(hwnd, command)
 
 
-def _find_catalog_window(value: str) -> int:
+def _activate_catalog_window(target: dict, app_name: str, process_names: list[str]) -> bool:
+    if target.get("kind", "application") != "application":
+        return False
+    launch_type = target.get("launch_type")
+    launch_value = target.get("launch_value")
+    if not isinstance(launch_type, str) or not isinstance(launch_value, str) or not launch_value:
+        return False
+    if launch_type not in {"app_id", "uri"}:
+        raise ValueError("Invalid catalog activation target")
+    normalized_processes = {
+        normalized
+        for value in process_names
+        if (normalized := normalize_process_name(value))
+    }
+    if normalize_phrase(app_name) == "steam" or "steam" in normalized_processes:
+        os.startfile("steam://open/main")  # type: ignore[attr-defined]
+        return True
+    launch(CatalogEntry(app_name, [], launch_type, launch_value, process_names))
+    return True
+
+
+def _wait_for_visible_catalog_window(
+    app_name: str,
+    process_names: list[str],
+    window_titles: list[str],
+    timeout_seconds: float = 5.0,
+) -> int | None:
+    deadline = time.monotonic() + timeout_seconds
+    process_value = "|".join(process_names) if process_names else ""
+    while time.monotonic() < deadline:
+        if process_value:
+            try:
+                return _find_window_for_processes(process_value)
+            except RuntimeError:
+                pass
+        windows = _matching_profile_title_windows(app_name, window_titles)
+        if windows:
+            return windows[0]
+        time.sleep(0.1)
+    return None
+
+
+def _find_catalog_window(value: str, *, include_tray_hidden: bool = False) -> int:
     try:
         target = json.loads(value)
     except json.JSONDecodeError:
@@ -663,14 +759,40 @@ def _find_catalog_window(value: str) -> int:
         except RuntimeError:
             pass
     windows = _matching_profile_title_windows(app_name, profile.window_titles)
-    if not windows:
-        raise RuntimeError("Application is not running or has no visible window")
-    return windows[0]
+    if windows:
+        return windows[0]
+    if include_tray_hidden:
+        if _activate_catalog_window(target, app_name, valid_names):
+            activated_window = _wait_for_visible_catalog_window(
+                app_name,
+                valid_names,
+                profile.window_titles,
+            )
+            if activated_window is not None:
+                return activated_window
+            raise RuntimeError("Application activation did not expose a restorable window")
+        # Backward compatibility for actions generated before launch metadata was included.
+        hidden_title_windows = _matching_profile_title_windows(
+            app_name,
+            profile.window_titles,
+            include_hidden=True,
+        )
+        if hidden_title_windows:
+            return hidden_title_windows[0]
+        if valid_names:
+            try:
+                return _find_hidden_window_for_processes("|".join(valid_names))
+            except RuntimeError:
+                pass
+    raise RuntimeError("Application is not running or has no restorable window")
 
 
 def _control_window(action_id: str, value: str) -> None:
     operation = action_id.removeprefix("window_")
-    hwnd = _find_catalog_window(value)
+    hwnd = _find_catalog_window(
+        value,
+        include_tray_hidden=operation in {"focus", "restore", "maximize"},
+    )
     _show_window(hwnd, operation)
 
 

@@ -77,6 +77,8 @@ def test_named_window_commands_use_allowlisted_catalog_aliases(monkeypatch, tmp_
     assert json.loads(phrases["გაზარდე ქრომი"].value) == {
         "name": "Google Chrome",
         "processes": ["chrome"],
+        "launch_type": "app_id",
+        "launch_value": "Chrome",
     }
 
 
@@ -108,6 +110,8 @@ def test_window_phrases_cover_catalog_without_manual_process_mapping(monkeypatch
     assert json.loads(phrases["დამალე კოდექსი"].value) == {
         "name": "ChatGPT",
         "processes": [],
+        "launch_type": "app_id",
+        "launch_value": "OpenAI.Codex!App",
     }
 
 
@@ -162,13 +166,116 @@ def test_named_window_control_calls_only_validated_operation(monkeypatch) -> Non
 
 def test_catalog_window_control_falls_back_to_title(monkeypatch) -> None:
     calls = []
-    monkeypatch.setattr(actions, "_matching_title_windows", lambda name: [4321] if name == "ChatGPT" else [])
+    monkeypatch.setattr(
+        actions,
+        "_matching_title_windows",
+        lambda name, **kwargs: [4321] if name == "ChatGPT" else [],
+    )
     monkeypatch.setattr(actions, "_show_window", lambda hwnd, operation: calls.append((hwnd, operation)))
 
     target = json.dumps({"name": "ChatGPT", "processes": []})
     actions._control_window("window_minimize", target)
 
     assert calls == [(4321, "minimize")]
+
+
+def test_restore_can_use_tray_hidden_main_window(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        actions,
+        "_find_window_for_processes",
+        lambda value: (_ for _ in ()).throw(RuntimeError("no visible window")),
+    )
+    monkeypatch.setattr(actions, "_find_hidden_window_for_processes", lambda value: 9876)
+    monkeypatch.setattr(actions, "_matching_profile_title_windows", lambda *args, **kwargs: [])
+    monkeypatch.setattr(actions, "_show_window", lambda hwnd, operation: calls.append((hwnd, operation)))
+
+    target = json.dumps({"name": "Discord", "processes": ["Discord"]})
+    actions._control_window("window_restore", target)
+
+    assert calls == [(9876, "restore")]
+
+
+def test_restore_prefers_hidden_catalog_title_over_process_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        actions,
+        "_find_window_for_processes",
+        lambda value: (_ for _ in ()).throw(RuntimeError("no visible window")),
+    )
+    title_calls = []
+
+    def title_windows(app_name, titles, *, include_hidden=False):
+        title_calls.append(include_hidden)
+        return [2468] if include_hidden else []
+
+    monkeypatch.setattr(actions, "_matching_profile_title_windows", title_windows)
+    process_calls = []
+    monkeypatch.setattr(
+        actions,
+        "_find_hidden_window_for_processes",
+        lambda value: process_calls.append(value) or 9876,
+    )
+
+    target = json.dumps({"name": "Steam", "processes": ["steam"]})
+
+    assert actions._find_catalog_window(target, include_tray_hidden=True) == 2468
+    assert title_calls == [False, True]
+    assert process_calls == []
+
+
+def test_new_window_action_reactivates_app_before_hidden_window_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        actions,
+        "_find_window_for_processes",
+        lambda value: (_ for _ in ()).throw(RuntimeError("no visible window")),
+    )
+    monkeypatch.setattr(actions, "_matching_profile_title_windows", lambda *args, **kwargs: [])
+    activation_calls = []
+    monkeypatch.setattr(
+        actions,
+        "_activate_catalog_window",
+        lambda target, name, processes: activation_calls.append((name, processes)) or True,
+    )
+    monkeypatch.setattr(actions, "_wait_for_visible_catalog_window", lambda *args: 1357)
+    hidden_calls = []
+    monkeypatch.setattr(
+        actions,
+        "_find_hidden_window_for_processes",
+        lambda value: hidden_calls.append(value) or 9876,
+    )
+    target = json.dumps(
+        {
+            "name": "Discord",
+            "processes": ["Discord"],
+            "launch_type": "app_id",
+            "launch_value": "com.squirrel.Discord.Discord",
+        }
+    )
+
+    assert actions._find_catalog_window(target, include_tray_hidden=True) == 1357
+    assert activation_calls == [("Discord", ["Discord"])]
+    assert hidden_calls == []
+
+
+def test_minimize_does_not_touch_tray_hidden_window(monkeypatch) -> None:
+    monkeypatch.setattr(
+        actions,
+        "_find_window_for_processes",
+        lambda value: (_ for _ in ()).throw(RuntimeError("no visible window")),
+    )
+    hidden_calls = []
+    monkeypatch.setattr(
+        actions,
+        "_find_hidden_window_for_processes",
+        lambda value: hidden_calls.append(value) or 9876,
+    )
+    monkeypatch.setattr(actions, "_matching_profile_title_windows", lambda *args, **kwargs: [])
+
+    target = json.dumps({"name": "Discord", "processes": ["Discord"]})
+    with pytest.raises(RuntimeError, match="no restorable window"):
+        actions._control_window("window_minimize", target)
+
+    assert hidden_calls == []
 
 
 def test_newly_learned_process_is_used_without_rebuilding_actions(monkeypatch, tmp_path) -> None:
