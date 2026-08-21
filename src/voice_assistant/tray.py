@@ -15,6 +15,7 @@ from . import __version__
 from .catalog import CATALOG_PATH
 from .catalog_monitor import CatalogMonitor
 from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, USER_DATA_ROOT, load_settings
+from .mobile_bridge import MobileBridgeService
 from .responses import VoiceResponses
 from .single_instance import SingleInstanceLock
 from .startup import install_startup, startup_shortcut, uninstall_startup
@@ -91,6 +92,8 @@ class TrayApplication:
         self.calibration_process: subprocess.Popen | None = None
         self.recognition_test_process: subprocess.Popen | None = None
         self.profile_manager_process: subprocess.Popen | None = None
+        self.mobile_window_process: subprocess.Popen | None = None
+        self.mobile_bridge = MobileBridgeService()
         self.icon = pystray.Icon("GelaVoiceAssistant", create_icon_image(), "Gela Voice Assistant")
         self.icon.menu = self._build_menu()
 
@@ -105,61 +108,87 @@ class TrayApplication:
             pystray.MenuItem(self._status_text, None, enabled=False),
             pystray.MenuItem(self._pause_text, self._toggle_pause, default=True),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("აპლიკაციების კატალოგის განახლება", self._refresh_catalog),
             pystray.MenuItem(
-                "კატალოგის ავტომატური განახლება (1 საათი)",
-                self._toggle_catalog_refresh,
-                checked=lambda item: self.catalog_monitor.enabled,
-            ),
-            pystray.MenuItem("ხმოვანი სახელების მართვა", self._open_alias_manager),
-            pystray.MenuItem("აპლიკაციების მართვის პროფილები", self._open_profile_manager),
-            pystray.MenuItem("რუტინების მართვა", self._open_routine_manager),
-            pystray.MenuItem(
-                "ლოკალური კითხვებზე პასუხი",
-                self._toggle_local_qa,
-                checked=lambda item: self.local_qa_enabled,
-            ),
-            pystray.MenuItem(
-                "ონლაინ სერვისები",
+                "აპლიკაციები",
                 pystray.Menu(
-                    pystray.MenuItem("ამინდი", lambda icon, item: self._toggle_online_service(icon, "weather_enabled"), checked=lambda item: self.weather_enabled),
-                    pystray.MenuItem("ვიკიპედია", lambda icon, item: self._toggle_online_service(icon, "wikipedia_enabled"), checked=lambda item: self.wikipedia_enabled),
+                    pystray.MenuItem("კატალოგის განახლება", self._refresh_catalog),
+                    pystray.MenuItem(
+                        "ავტომატური განახლება (1 საათი)",
+                        self._toggle_catalog_refresh,
+                        checked=lambda item: self.catalog_monitor.enabled,
+                    ),
+                    pystray.MenuItem("ხმოვანი სახელების მართვა", self._open_alias_manager),
+                    pystray.MenuItem("მართვის პროფილები", self._open_profile_manager),
+                    pystray.MenuItem("რუტინების მართვა", self._open_routine_manager),
+                    pystray.MenuItem("ხმოვანი მზადყოფნის ნახვა", self._open_catalog_window),
                 ),
             ),
-            pystray.MenuItem("დიაგნოსტიკა", self._open_diagnostics),
-            pystray.MenuItem("გამაღვიძებელი სიტყვის კალიბრაცია", self._open_calibration),
-            pystray.MenuItem("მეტყველების ამოცნობის ტესტი", self._open_recognition_test),
             pystray.MenuItem(
-                "ხმოვანი პასუხების ტესტი",
+                "სერვისები და კავშირი",
                 pystray.Menu(
-                    pystray.MenuItem("მზადაა", lambda icon, item: self._test_response("ready")),
+                    pystray.MenuItem("მობილური კავშირი", self._open_mobile_connection),
                     pystray.MenuItem(
-                        "წარმატებით შესრულდა", lambda icon, item: self._test_response("launch_success")
+                        "ლოკალური კითხვებზე პასუხი",
+                        self._toggle_local_qa,
+                        checked=lambda item: self.local_qa_enabled,
                     ),
                     pystray.MenuItem(
-                        "ვერ გავიგე",
-                        lambda icon, item: self._test_response("command_not_understood"),
+                        "ონლაინ სერვისები",
+                        pystray.Menu(
+                            pystray.MenuItem("ამინდი", lambda icon, item: self._toggle_online_service(icon, "weather_enabled"), checked=lambda item: self.weather_enabled),
+                            pystray.MenuItem("ვიკიპედია", lambda icon, item: self._toggle_online_service(icon, "wikipedia_enabled"), checked=lambda item: self.wikipedia_enabled),
+                        ),
                     ),
                 ),
             ),
-            pystray.MenuItem("ხმოვანი პასუხის შეწყვეტა", lambda icon, item: VoiceResponses.stop()),
-            pystray.MenuItem("ჟურნალის გახსნა", self._open_logs_window),
-            pystray.MenuItem("პარამეტრების გახსნა", self._open_settings_window),
-            pystray.MenuItem("აპლიკაციების კატალოგის გახსნა", self._open_catalog_window),
-            pystray.MenuItem("Gela-ს მონაცემთა საქაღალდე", lambda icon, item: self._open_path(USER_DATA_ROOT)),
             pystray.MenuItem(
-                f"Gela {__version__} — Softcurse Systems", None, enabled=False
+                "ხმა და დიაგნოსტიკა",
+                pystray.Menu(
+                    pystray.MenuItem("დიაგნოსტიკა", self._open_diagnostics),
+                    pystray.MenuItem("გამაღვიძებელი სიტყვის კალიბრაცია", self._open_calibration),
+                    pystray.MenuItem("მეტყველების ამოცნობის ტესტი", self._open_recognition_test),
+                    pystray.MenuItem(
+                        "ხმოვანი პასუხების ტესტი",
+                        pystray.Menu(
+                            pystray.MenuItem("მზადაა", lambda icon, item: self._test_response("ready")),
+                            pystray.MenuItem(
+                                "წარმატებით შესრულდა", lambda icon, item: self._test_response("launch_success")
+                            ),
+                            pystray.MenuItem(
+                                "ვერ გავიგე",
+                                lambda icon, item: self._test_response("command_not_understood"),
+                            ),
+                        ),
+                    ),
+                    pystray.MenuItem("ხმოვანი პასუხის შეწყვეტა", lambda icon, item: VoiceResponses.stop()),
+                    pystray.MenuItem("ჟურნალის გახსნა", self._open_logs_window),
+                ),
             ),
             pystray.MenuItem(
-                "Softcurse Systems-ის ვებსაიტი",
-                lambda icon, item: webbrowser.open(DEVELOPER_URL),
+                "პარამეტრები",
+                pystray.Menu(
+                    pystray.MenuItem("პარამეტრების გახსნა", self._open_settings_window),
+                    pystray.MenuItem("Gela-ს მონაცემთა საქაღალდე", lambda icon, item: self._open_path(USER_DATA_ROOT)),
+                    pystray.MenuItem(
+                        "Windows-თან ერთად გაშვება",
+                        self._toggle_startup,
+                        checked=lambda item: startup_shortcut().is_file(),
+                    ),
+                ),
+            ),
+            pystray.MenuItem(
+                "Gela-ს შესახებ",
+                pystray.Menu(
+                    pystray.MenuItem(
+                        f"Gela {__version__} — Softcurse Systems", None, enabled=False
+                    ),
+                    pystray.MenuItem(
+                        "Softcurse Systems-ის ვებსაიტი",
+                        lambda icon, item: webbrowser.open(DEVELOPER_URL),
+                    ),
+                ),
             ),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem(
-                "Windows-თან ერთად გაშვება",
-                self._toggle_startup,
-                checked=lambda item: startup_shortcut().is_file(),
-            ),
             pystray.MenuItem("Gela-ს დახურვა", self._exit),
         )
 
@@ -183,6 +212,11 @@ class TrayApplication:
             daemon=True,
         )
         self.catalog_thread.start()
+        if not self.mobile_bridge.start():
+            icon.notify(
+                f"მობილური ხიდი ვერ ჩაირთო: {self.mobile_bridge.error}",
+                "Gela",
+            )
 
     def _toggle_pause(self, icon, item) -> None:
         VoiceResponses.stop()
@@ -311,6 +345,20 @@ class TrayApplication:
         )
         subprocess.Popen(command, close_fds=True)
 
+    def _open_mobile_connection(self, icon, item) -> None:
+        if self.mobile_window_process is not None and self.mobile_window_process.poll() is None:
+            icon.notify("მობილური კავშირის ფანჯარა უკვე გახსნილია", "Gela")
+            return
+        command = (
+            [sys.executable, "--mobile-connection"]
+            if getattr(sys, "frozen", False)
+            else [sys.executable, "-m", "voice_assistant.mobile_connection_window"]
+        )
+        try:
+            self.mobile_window_process = subprocess.Popen(command, close_fds=True)
+        except Exception as exc:
+            icon.notify(f"მობილური კავშირის ფანჯარა ვერ გაიხსნა: {exc}", "Gela")
+
     @staticmethod
     def _open_catalog_window(icon, item) -> None:
         command = (
@@ -433,11 +481,13 @@ class TrayApplication:
     def _exit(self, icon, item) -> None:
         VoiceResponses.stop()
         self.controls.stop_event.set()
+        self.mobile_bridge.stop()
         icon.stop()
 
     def run(self) -> None:
         self.icon.run(setup=self._setup)
         self.controls.stop_event.set()
+        self.mobile_bridge.stop()
         if self.worker_thread is not None:
             self.worker_thread.join(timeout=3)
         if self.catalog_thread is not None:
@@ -445,6 +495,10 @@ class TrayApplication:
 
 
 def main() -> int:
+    if "--mobile-connection" in sys.argv:
+        from .mobile_connection_window import main as mobile_connection_main
+
+        return mobile_connection_main()
     if "--catalog-window" in sys.argv:
         from .catalog_window import main as catalog_window_main
 

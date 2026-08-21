@@ -32,6 +32,7 @@ a = Analysis(
         "voice_assistant.recognition_test_window",
         "voice_assistant.profile_manager",
         "voice_assistant.catalog_window",
+        "voice_assistant.mobile_connection_window",
     ],
     hookspath=[],
     hooksconfig={},

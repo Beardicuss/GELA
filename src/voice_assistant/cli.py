@@ -80,6 +80,8 @@ def main() -> int:
     subparsers.add_parser("startup-status")
     subparsers.add_parser("audit-vocabulary")
     subparsers.add_parser("voice-status")
+    bridge_parser = subparsers.add_parser("mobile-bridge")
+    bridge_parser.add_argument("--port", type=int, default=8765)
     test_voice_parser = subparsers.add_parser("test-voice")
     test_voice_parser.add_argument("event")
     audio_test_parser = subparsers.add_parser("test-command-audio")
@@ -146,6 +148,11 @@ def main() -> int:
         print(f"Orphaned recordings: {', '.join(coverage['orphaned']) or 'none'}")
         print(f"Invalid recordings: {', '.join(assets.errors) or 'none'}")
         return 1 if coverage["missing"] or assets.errors else 0
+    if args.command == "mobile-bridge":
+        from .mobile_bridge import serve_mobile_bridge
+
+        serve_mobile_bridge(port=args.port)
+        return 0
     if args.command == "test-voice":
         played = VoiceResponses().play(args.event)
         print("Played recorded response." if played else "Recording missing; played fallback beep.")
