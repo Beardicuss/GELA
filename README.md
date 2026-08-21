@@ -130,7 +130,7 @@ After the first rejected command, Gela now listens one more time without requiri
 
 Any recorded response can be stopped immediately with **Stop voice response** in the tray; pausing or exiting Gela also cancels playback. Speech-triggered barge-in is intentionally deferred because reliable use with room speakers requires acoustic echo cancellation—simple microphone-level detection would make Gela react to its own voice.
 
-Safe system actions include known-folder access, volume controls, screenshots, Windows locking, and complete application-catalog closing. Gela requests normal closure first, preserves processes showing a visible unsaved-work/confirmation dialog, and stops only background remnants after an app retreats to the tray. See `COMMANDS.md`. Shutdown/restart, arbitrary shell execution, and deletion are not supported.
+Safe system actions include known-folder access, volume controls, screenshots, Windows locking, fixed shutdown/restart/standby requests, and complete application-catalog closing. Gela requests normal closure first, preserves processes showing a visible unsaved-work/confirmation dialog, and stops only background remnants after an app retreats to the tray. See `COMMANDS.md`. Arbitrary shell execution and deletion are not supported.
 
 Applications with explicit or inferred executable mappings also support focus/switch, minimize, maximize, and restore commands. Active-window minimize, maximize, and restore commands use the current foreground window only.
 

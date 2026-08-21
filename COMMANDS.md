@@ -123,7 +123,17 @@ English forms are `play music`, `pause music`, `resume music`, `stop media`, `ne
 
 Brightness changes by 10 percentage points and works only when the monitor exposes Windows brightness control. Unsupported monitors produce the normal failure response.
 
-Shutdown, restart, arbitrary shell commands, and file deletion are intentionally unsupported.
+## Computer power
+
+These exact Georgian commands request fixed Windows power operations:
+
+- `გამორთე კომპიუტერი` — shut down after five seconds;
+- `დაარესტარტე კომპიუტერი` — restart after five seconds;
+- `დააძინე კომპიუტერი` — enter standby/sleep.
+
+Shutdown and restart do not force-close applications, so Windows can still show
+an unsaved-work warning. Arbitrary shell commands and file deletion remain
+unsupported.
 
 Wi-Fi and Bluetooth controls use the Windows radio API without administrator elevation. They set an explicit state rather than toggling blindly. A device managed by organization policy or hardware without a Windows radio interface returns the normal failure response and is not changed.
 

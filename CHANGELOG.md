@@ -5,6 +5,12 @@ practical.
 
 ## Unreleased
 
+### Added
+
+- Exact Georgian commands for Windows shutdown, restart, and standby.
+- Five-second non-forced shutdown/restart scheduling so Windows can warn about
+  unsaved work.
+
 ### Planned
 
 - micro:bit V2 USB controller and status prototype.

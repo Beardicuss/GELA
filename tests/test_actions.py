@@ -30,6 +30,9 @@ def test_static_georgian_actions_are_routed() -> None:
     assert phrases["ხმა გათიშე"].action_id == "volume_mute"
     assert phrases["გადაიღე ეკრანი"].action_id == "screenshot"
     assert phrases["ჩაკეტე კომპიუტერი"].action_id == "lock_windows"
+    assert phrases["გამორთე კომპიუტერი"].action_id == "power_shutdown"
+    assert phrases["დაარესტარტე კომპიუტერი"].action_id == "power_restart"
+    assert phrases["დააძინე კომპიუტერი"].action_id == "power_sleep"
     assert phrases["გახსენი ვაიფაი"].value == "ms-settings:network-wifi"
     assert phrases["ჩართე ვაიფაი"] == SystemAction("Turn on Wi-Fi", "radio", "WiFi:on")
     assert phrases["გამორთე ბლუთუზი"].value == "Bluetooth:off"
@@ -370,6 +373,38 @@ def test_settings_action_accepts_only_fixed_settings_uri(monkeypatch) -> None:
     assert opened == ["ms-settings:network-wifi"]
     with pytest.raises(ValueError, match="Settings URIs"):
         execute_action(SystemAction("Unsafe", "open_uri", "https://example.com"))
+
+
+def test_power_actions_use_only_fixed_windows_operations(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(actions, "hidden_process_kwargs", lambda: {"creationflags": 7})
+    monkeypatch.setattr(
+        actions.subprocess,
+        "run",
+        lambda command, **kwargs: calls.append((command, kwargs)),
+    )
+
+    assert execute_action(SystemAction("Shutdown", "power_shutdown")) == "shutdown scheduled in 5 seconds"
+    assert execute_action(SystemAction("Restart", "power_restart")) == "restart scheduled in 5 seconds"
+
+    assert calls == [
+        (["shutdown.exe", "/s", "/t", "5"], {"check": True, "creationflags": 7}),
+        (["shutdown.exe", "/r", "/t", "5"], {"check": True, "creationflags": 7}),
+    ]
+
+
+def test_sleep_action_uses_windows_suspend_api(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        actions.ctypes.windll.powrprof,
+        "SetSuspendState",
+        lambda hibernate, force, disable_wake: calls.append(
+            (hibernate, force, disable_wake)
+        ) or True,
+    )
+
+    assert execute_action(SystemAction("Sleep", "power_sleep")) == "sleep requested"
+    assert calls == [(False, False, False)]
 
 
 def test_brightness_action_is_limited_to_ten_percent(monkeypatch) -> None:

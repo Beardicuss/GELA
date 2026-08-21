@@ -42,3 +42,22 @@ def test_execute_text_command_falls_back_to_english(monkeypatch):
     assert result.status == "executed"
     assert result.matched_command == "Volume Up"
     assert calls == [action]
+
+
+def test_mobile_command_does_not_require_wake_word(monkeypatch):
+    action = SystemAction("Shut down computer", "power_shutdown")
+    monkeypatch.setattr(
+        "voice_assistant.remote_commands.command_index",
+        lambda language: {"გამორთე კომპიუტერი": action} if language == "ka" else {},
+    )
+    calls = []
+    monkeypatch.setattr(
+        "voice_assistant.remote_commands.execute_action",
+        lambda target: calls.append(target) or "shutdown scheduled in 5 seconds",
+    )
+
+    result = execute_text_command("გამორთე კომპიუტერი", "ka")
+
+    assert result.status == "executed"
+    assert result.matched_command == "Shut down computer"
+    assert calls == [action]

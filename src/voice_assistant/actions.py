@@ -61,6 +61,9 @@ STATIC_ACTIONS = {
         "ხმა ჩართე": SystemAction("Toggle Mute", "volume_mute"),
         "გადაიღე ეკრანი": SystemAction("Take Screenshot", "screenshot"),
         "ჩაკეტე კომპიუტერი": SystemAction("Lock Windows", "lock_windows"),
+        "გამორთე კომპიუტერი": SystemAction("Shut down computer", "power_shutdown"),
+        "დაარესტარტე კომპიუტერი": SystemAction("Restart computer", "power_restart"),
+        "დააძინე კომპიუტერი": SystemAction("Put computer to sleep", "power_sleep"),
         "დამალე ფანჯარა": SystemAction("Minimize active window", "window_active", "minimize"),
         "ჩაკეცე": SystemAction("Minimize active window", "window_active", "minimize"),
         "ჩაკეცე ფანჯარა": SystemAction("Minimize active window", "window_active", "minimize"),
@@ -714,6 +717,24 @@ def execute_action(action: SystemAction) -> str | None:
         if not ctypes.windll.user32.LockWorkStation():
             raise OSError("Windows lock request failed")
         return None
+    if action.action_id == "power_shutdown":
+        subprocess.run(
+            ["shutdown.exe", "/s", "/t", "5"],
+            check=True,
+            **hidden_process_kwargs(),
+        )
+        return "shutdown scheduled in 5 seconds"
+    if action.action_id == "power_restart":
+        subprocess.run(
+            ["shutdown.exe", "/r", "/t", "5"],
+            check=True,
+            **hidden_process_kwargs(),
+        )
+        return "restart scheduled in 5 seconds"
+    if action.action_id == "power_sleep":
+        if not ctypes.windll.powrprof.SetSuspendState(False, False, False):
+            raise OSError("Windows sleep request failed")
+        return "sleep requested"
     if action.action_id == "close_process":
         _close_process_windows(action.value)
         return None
