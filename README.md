@@ -106,6 +106,33 @@ The worker uses `pythonw.exe`, so it has no console window. Runtime information 
 
 The startup entry launches the Gela system-tray application. Its menu shows live state and provides pause/resume, catalog refresh, response tests, logs/settings/catalog shortcuts, startup control, and clean exit. Run it manually with `.\.venv\Scripts\pythonw.exe -m voice_assistant.tray`.
 
+The nested **Services and connection → Mobile files folder** action opens
+`%LOCALAPPDATA%\Gela\mobile\transfers`. Files received from the phone appear in
+`inbox`; only files deliberately copied into `outbox` are offered to the phone.
+Transfers are authenticated, limited to 25 MB per file, and never opened or
+executed automatically. Clipboard exchange likewise happens only after an
+explicit mobile tap.
+
+The bridge also exposes an authenticated, redacted paired-device inventory,
+self-token rotation with a five-minute recovery window, explicit device
+revocation, and a bounded 200-event security audit. API responses and audit
+records never expose bearer tokens or stored token hashes. Mobile biometric
+checks add local-presence confirmation before high-risk actions; the PC remains
+the final authorization boundary.
+
+The Mobile connection window can optionally configure different-network access
+through Tailscale. After both devices sign into the same private network, Gela
+uses a private HTTPS Serve address that proxies only to `127.0.0.1:8765` and
+reports that address to authenticated phones. Local Wi-Fi continues to work.
+Gela does not enable public Funnel access and must not be exposed with router
+port forwarding.
+
+View-only screen sharing can be authorized biometrically from a paired phone,
+with the Mobile connection window retained as a PC-side fallback. It expires automatically after 15 minutes and works only
+through the Tailscale private HTTPS proxy. Authenticated requests arriving over
+the cleartext LAN route are rejected. Frames are bounded and rate-limited, and
+this phase provides no keyboard, touch, or mouse-control endpoint.
+
 Personal configuration and runtime files are stored under `%LOCALAPPDATA%\Gela`, separate from application binaries. First launch copies existing/default settings, aliases, and catalog without overwriting files already present. The tray menu can open this data folder directly.
 
 Gela automatically rescans installed Start-menu applications and Steam games once at startup and then every hour. Content-aware atomic updates avoid reloading the speech recognizer when nothing changed. Automatic maintenance can be enabled or disabled from the tray; the choice is saved in `config/settings.json`.

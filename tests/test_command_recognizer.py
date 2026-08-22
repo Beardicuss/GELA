@@ -60,3 +60,21 @@ def test_command_model_directory_requires_both_files(tmp_path) -> None:
         assert "model.int8.onnx" in str(exc)
     else:
         raise AssertionError("Incomplete command model was accepted")
+
+
+def test_command_model_accepts_mobile_sample_rate_and_downmixes_stereo(monkeypatch, tmp_path) -> None:
+    fake = _FakeRecognizer()
+    monkeypatch.setattr(
+        "voice_assistant.command_recognizer.sherpa_onnx.OfflineRecognizer.from_omnilingual_asr_ctc",
+        lambda **_kwargs: fake,
+    )
+    recognizer = OmnilingualCommandRecognizer(_model_directory(tmp_path))
+
+    recognizer.transcribe_pcm16(
+        b"\x00\x40\x00\x40\x00\x20\x00\x20",
+        sample_rate=48_000,
+        channels=2,
+    )
+
+    assert fake.stream.accepted[0] == 48_000
+    assert len(fake.stream.accepted[1]) == 2

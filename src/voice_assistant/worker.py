@@ -6,6 +6,7 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import queue
 import time
 import threading
 import winsound
@@ -59,6 +60,16 @@ MUTEX_NAME = "Local\\SimpleVoiceAssistantWorker"
 EMBEDDED_WAKE_MIN_CONFIDENCE = 0.75
 
 
+class RemoteAudioRecognition:
+    def __init__(self, audio: bytes, sample_rate: int, channels: int) -> None:
+        self.audio = audio
+        self.sample_rate = sample_rate
+        self.channels = channels
+        self.completed = threading.Event()
+        self.result: RecognitionResult | None = None
+        self.error: Exception | None = None
+
+
 def exact_embedded_wake(
     result: RecognitionResult,
     wake_phrases: list[str],
@@ -86,6 +97,25 @@ class WorkerControls:
         self._status = "starting"
         self._status_lock = threading.Lock()
         self._status_callbacks = [status_callback] if status_callback is not None else []
+        self.remote_audio_requests: queue.Queue[RemoteAudioRecognition] = queue.Queue(maxsize=2)
+
+    def transcribe_remote_audio(
+        self,
+        audio: bytes,
+        sample_rate: int,
+        channels: int,
+        timeout_seconds: float = 20.0,
+    ) -> RecognitionResult:
+        request = RemoteAudioRecognition(audio, sample_rate, channels)
+        try:
+            self.remote_audio_requests.put_nowait(request)
+        except queue.Full as exc:
+            raise RuntimeError("Gela is already processing mobile audio") from exc
+        if not request.completed.wait(timeout_seconds):
+            raise TimeoutError("PC speech recognition timed out")
+        if request.error is not None:
+            raise request.error
+        return request.result or RecognitionResult("", 0.0)
 
     @property
     def status(self) -> str:
@@ -398,13 +428,43 @@ class BackgroundAssistant:
         recognizer.SetWords(True)
         return recognizer
 
-    def _command_model_result(self, audio: bytes) -> RecognitionResult:
+    def _command_model_result(
+        self,
+        audio: bytes,
+        *,
+        sample_rate: int = 16_000,
+        channels: int = 1,
+    ) -> RecognitionResult:
         """Decode one bounded utterance after Vosk has already accepted the wake word."""
         try:
-            return self.command_model.transcribe_pcm16(audio)
+            return self.command_model.transcribe_pcm16(
+                audio,
+                sample_rate=sample_rate,
+                channels=channels,
+            )
         except Exception:
             logging.exception("Omnilingual command transcription failed")
             return RecognitionResult("", 0.0)
+
+    def _process_remote_audio(self, controls: WorkerControls) -> None:
+        try:
+            request = controls.remote_audio_requests.get_nowait()
+        except queue.Empty:
+            return
+        previous_status = controls.status
+        controls.set_status("recognizing_mobile")
+        try:
+            request.result = self.command_model.transcribe_pcm16(
+                request.audio,
+                sample_rate=request.sample_rate,
+                channels=request.channels,
+            )
+        except Exception as exc:
+            logging.exception("Mobile audio transcription failed")
+            request.error = exc
+        finally:
+            request.completed.set()
+            controls.set_status(previous_status)
 
     def run_stream(self, controls: WorkerControls) -> str:
         device_index, device = find_input_device(
@@ -507,6 +567,7 @@ class BackgroundAssistant:
                     logging.warning("Audio input overflow")
                     continue
                 audio = bytes(data)
+                self._process_remote_audio(controls)
 
                 if controls.pause_event.is_set():
                     if controls.status != "paused":

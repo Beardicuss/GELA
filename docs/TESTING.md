@@ -19,3 +19,16 @@ the protocol and safety behaviour remain testable in GitHub Actions.
 
 GitHub Actions runs the suite on Windows with Python 3.11, 3.12, and 3.13 for
 every pull request and push to `main`.
+
+Different-network validation additionally requires two signed-in Tailscale
+devices. In the Mobile connection window, enable encrypted remote access, verify
+the displayed URL uses HTTPS, then confirm an authenticated Android client works
+over mobile data. Restore the LAN and confirm local HTTP remains usable. Verify
+that no public Funnel or router port-forward rule was created.
+
+For screen validation, grant the 15-minute permission through biometric mobile
+authorization, separately test the PC fallback, and load frames through the
+private HTTPS URL. Verify authentication,
+permission expiry/revocation, 1280×720 bounds, and `no-store` response headers.
+Direct LAN requests must be rejected and the mobile viewer must not control PC
+input.

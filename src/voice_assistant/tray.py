@@ -15,7 +15,7 @@ from . import __version__
 from .catalog import CATALOG_PATH
 from .catalog_monitor import CatalogMonitor
 from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, USER_DATA_ROOT, load_settings
-from .mobile_bridge import MobileBridgeService
+from .mobile_bridge import MOBILE_TRANSFER_ROOT, MobileBridgeService, ensure_transfer_directories
 from .responses import VoiceResponses
 from .single_instance import SingleInstanceLock
 from .startup import install_startup, startup_shortcut, uninstall_startup
@@ -38,6 +38,7 @@ STATUS_LABELS = {
     "recovering_audio": "მიკროფონის კავშირი აღდგება",
     "calibrating": "გამაღვიძებელი სიტყვის კალიბრაცია",
     "recognition_testing": "ამოცნობის ტესტირება",
+    "recognizing_mobile": "მობილურის ხმის ამოცნობა",
     "error": "მიკროფონის ან პროცესის შეცდომა",
     "stopped": "გაჩერებულია",
 }
@@ -93,7 +94,9 @@ class TrayApplication:
         self.recognition_test_process: subprocess.Popen | None = None
         self.profile_manager_process: subprocess.Popen | None = None
         self.mobile_window_process: subprocess.Popen | None = None
-        self.mobile_bridge = MobileBridgeService()
+        self.mobile_bridge = MobileBridgeService(
+            audio_recognizer=self.controls.transcribe_remote_audio,
+        )
         self.icon = pystray.Icon("GelaVoiceAssistant", create_icon_image(), "Gela Voice Assistant")
         self.icon.menu = self._build_menu()
 
@@ -127,6 +130,7 @@ class TrayApplication:
                 "სერვისები და კავშირი",
                 pystray.Menu(
                     pystray.MenuItem("მობილური კავშირი", self._open_mobile_connection),
+                    pystray.MenuItem("მობილური ფაილების საქაღალდე", self._open_mobile_transfer_folder),
                     pystray.MenuItem(
                         "ლოკალური კითხვებზე პასუხი",
                         self._toggle_local_qa,
@@ -463,6 +467,10 @@ class TrayApplication:
         if not path.exists() and path == LOG_PATH:
             path.touch()
         os.startfile(path)  # type: ignore[attr-defined]
+
+    def _open_mobile_transfer_folder(self, _icon=None, _item=None) -> None:
+        ensure_transfer_directories()
+        self._open_path(MOBILE_TRANSFER_ROOT)
 
     @staticmethod
     def _open_text_file(path: Path) -> None:

@@ -37,24 +37,40 @@ class OmnilingualCommandRecognizer:
             provider="cpu",
         )
 
-    def transcribe_pcm16(self, audio: bytes) -> RecognitionResult:
+    def transcribe_pcm16(
+        self,
+        audio: bytes,
+        *,
+        sample_rate: int = 16_000,
+        channels: int = 1,
+    ) -> RecognitionResult:
         if len(audio) < 2:
             return RecognitionResult("", 0.0)
+        if sample_rate < 8_000 or sample_rate > 48_000:
+            raise ValueError("Audio sample rate must be between 8000 and 48000 Hz")
+        if channels not in {1, 2}:
+            raise ValueError("Audio must contain one or two channels")
         if len(audio) % 2:
             audio = audio[:-1]
         pcm = array("h")
         pcm.frombytes(audio)
         if sys.byteorder != "little":
             pcm.byteswap()
-        samples = [sample / 32768.0 for sample in pcm]
+        if channels == 2:
+            samples = [
+                ((pcm[index] + pcm[index + 1]) / 2) / 32768.0
+                for index in range(0, len(pcm) - 1, 2)
+            ]
+        else:
+            samples = [sample / 32768.0 for sample in pcm]
         stream = self._recognizer.create_stream()
-        stream.accept_waveform(self.sample_rate, samples)
+        stream.accept_waveform(sample_rate, samples)
         self._recognizer.decode_stream(stream)
         text = normalize_phrase(stream.result.text)
         logging.info(
             "Omnilingual command transcription: %s (audio=%.2fs)",
             text or "[nothing]",
-            len(pcm) / self.sample_rate,
+            len(pcm) / channels / sample_rate,
         )
         # The CTC result has no calibrated utterance probability. Exact phrase
         # matching against Gela's fixed action/catalog allowlist remains the
