@@ -93,10 +93,12 @@ class WorkerControls:
         self.pause_event = threading.Event()
         self.reload_event = threading.Event()
         self.release_audio_event = threading.Event()
+        self.cancel_event = threading.Event()
         self._audio_release_reason = "calibrating"
         self._status = "starting"
         self._status_lock = threading.Lock()
         self._status_callbacks = [status_callback] if status_callback is not None else []
+        self._response_callbacks = []
         self.remote_audio_requests: queue.Queue[RemoteAudioRecognition] = queue.Queue(maxsize=2)
 
     def transcribe_remote_audio(
@@ -133,6 +135,13 @@ class WorkerControls:
     def add_status_callback(self, callback) -> None:
         self._status_callbacks.append(callback)
 
+    def add_response_callback(self, callback) -> None:
+        self._response_callbacks.append(callback)
+
+    def emit_response_event(self, event: str, active: bool) -> None:
+        for callback in self._response_callbacks:
+            callback(event, active)
+
     @property
     def audio_release_reason(self) -> str:
         with self._status_lock:
@@ -144,6 +153,9 @@ class WorkerControls:
         with self._status_lock:
             self._audio_release_reason = reason
         self.release_audio_event.set()
+
+    def request_cancel(self) -> None:
+        self.cancel_event.set()
 
 
 def configure_logging() -> None:
@@ -164,7 +176,12 @@ def acquire_single_instance() -> int:
 
 
 class BackgroundAssistant:
-    def __init__(self, settings: Settings, diagnostics: RuntimeStatusStore | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        diagnostics: RuntimeStatusStore | None = None,
+        response_callback=None,
+    ) -> None:
         self.settings = settings
         self.diagnostics = diagnostics
         if not CATALOG_PATH.is_file():
@@ -231,7 +248,7 @@ class BackgroundAssistant:
         self.english_phrases.update(online_phrases("en", settings.online_services))
         self.phrases = expand_intent_phrases(self.phrases, settings.background.language)
         self.english_phrases = expand_intent_phrases(self.english_phrases, "en")
-        self.responses = VoiceResponses()
+        self.responses = VoiceResponses(event_callback=response_callback)
         if self.diagnostics is not None:
             self.diagnostics.update(
                 models="Vosk wake models and Omnilingual command model loaded",
@@ -569,6 +586,20 @@ class BackgroundAssistant:
                 audio = bytes(data)
                 self._process_remote_audio(controls)
 
+                if controls.cancel_event.is_set():
+                    controls.cancel_event.clear()
+                    state = "cooldown"
+                    cooldown_until = now + 0.4
+                    wake_segments.clear()
+                    english_wake_segments.clear()
+                    wake_audio.clear()
+                    command_audio.clear()
+                    vad.reset()
+                    wake_boundary.reset()
+                    wake_peak_rms = 0.0
+                    controls.set_status("cooldown")
+                    continue
+
                 if controls.pause_event.is_set():
                     if controls.status != "paused":
                         state = "sleeping"
@@ -730,7 +761,10 @@ class BackgroundAssistant:
                             command_utterance = self._command_model_result(completed_wake_audio)
                             stream.start()
                             command_split = split_wake_command(command_utterance, wake_phrases)
-                            command_options: list[RecognitionResult] = []
+                            # Vosk already extracted an exact allowlisted command
+                            # after the wake word. Prefer it when Omnilingual
+                            # produces a mixed-script transcription of the same audio.
+                            command_options: list[RecognitionResult] = [wake_command]
                             if command_split is not None:
                                 command_options.append(command_split[2])
                             command_options.append(command_utterance)
@@ -1107,7 +1141,11 @@ def run_worker(controls: WorkerControls | None = None) -> int:
             try:
                 if assistant is None:
                     settings = load_settings()
-                    assistant = BackgroundAssistant(settings, diagnostics)
+                    assistant = BackgroundAssistant(
+                        settings,
+                        diagnostics,
+                        response_callback=controls.emit_response_event,
+                    )
                     if first_start:
                         assistant.responses.play("startup_ready", winsound.MB_OK)
                         first_start = False

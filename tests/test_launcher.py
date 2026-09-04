@@ -166,3 +166,17 @@ def test_profile_process_and_window_title_override_automatic_guesses(monkeypatch
 
     assert launcher._configured_process_names(entry) == {"preferred_app"}
     assert launcher._title_matches(entry, "Special Workspace — Document", ["Special Workspace"])
+
+
+def test_verified_media_launch_is_allowlisted_and_does_not_wait(monkeypatch, tmp_path) -> None:
+    library = tmp_path / "Playlists"
+    library.mkdir()
+    playlist = library / "Chronicles.xspf"
+    playlist.touch()
+    entry = CatalogEntry("Chronicles", ["ქრონიკები"], "file", str(playlist))
+    opened = []
+    monkeypatch.setattr(launcher, "is_allowed_media_file", lambda path: path == playlist)
+    monkeypatch.setattr(launcher.os, "startfile", lambda path: opened.append(path))
+
+    assert launcher.launch_verified(entry) == "verified media dispatched=Chronicles"
+    assert opened == [str(playlist.resolve())]

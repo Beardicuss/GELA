@@ -31,30 +31,37 @@ class VoiceResponses:
     _playback_stop = threading.Event()
     _playback_lock = threading.Lock()
 
-    def __init__(self, config_path: Path = RESPONSES_CONFIG) -> None:
+    def __init__(self, config_path: Path = RESPONSES_CONFIG, event_callback=None) -> None:
         raw = json.loads(config_path.read_text(encoding="utf-8"))
         self.enabled = bool(raw.get("enabled", True))
         self.paths = {
             event: (PROJECT_ROOT / relative_path).resolve()
             for event, relative_path in raw.get("responses", {}).items()
         }
+        self.event_callback = event_callback
 
     def play(self, event: str, fallback: int = winsound.MB_OK) -> bool:
-        path = self.paths.get(event)
-        if self.enabled and path is not None and path.is_file():
-            with self._playback_lock:
-                self._playback_stop.clear()
-                with wave.open(str(path), "rb") as recording:
-                    duration = recording.getnframes() / recording.getframerate()
-                winsound.PlaySound(
-                    str(path),
-                    winsound.SND_FILENAME | winsound.SND_NODEFAULT | winsound.SND_ASYNC,
-                )
-                self._playback_stop.wait(duration + 0.1)
-                winsound.PlaySound(None, 0)
-            return True
-        winsound.MessageBeep(fallback)
-        return False
+        if self.event_callback is not None:
+            self.event_callback(event, True)
+        try:
+            path = self.paths.get(event)
+            if self.enabled and path is not None and path.is_file():
+                with self._playback_lock:
+                    self._playback_stop.clear()
+                    with wave.open(str(path), "rb") as recording:
+                        duration = recording.getnframes() / recording.getframerate()
+                    winsound.PlaySound(
+                        str(path),
+                        winsound.SND_FILENAME | winsound.SND_NODEFAULT | winsound.SND_ASYNC,
+                    )
+                    self._playback_stop.wait(duration + 0.1)
+                    winsound.PlaySound(None, 0)
+                return True
+            winsound.MessageBeep(fallback)
+            return False
+        finally:
+            if self.event_callback is not None:
+                self.event_callback(event, False)
 
     def available(self, event: str) -> bool:
         path = self.paths.get(event)

@@ -26,6 +26,7 @@ MIXED_WINDOW_PREFIXES = {
 KA_FORMAL_VERBS = {
     "გახსენით": "გახსენი",
     "ჩართეთ": "ჩართე",
+    "დაუკარით": "დაუკარი",
     "გაუშვით": "გაუშვი",
     "დახურეთ": "დახურე",
     "გამორთეთ": "გამორთე",
@@ -157,6 +158,9 @@ def command_phrases(entries: list[CatalogEntry], language: str) -> dict[str, Cat
     for alias, entry in aliases.items():
         for prefix in COMMAND_PREFIXES.get(language, COMMAND_PREFIXES["en"]):
             phrases[f"{prefix} {alias}"] = entry
+        if entry.launch_type == "file":
+            media_prefix = "დაუკარი" if language == "ka" else "play"
+            phrases[f"{media_prefix} {alias}"] = entry
     return phrases
 
 

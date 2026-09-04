@@ -61,3 +61,17 @@ def test_mobile_command_does_not_require_wake_word(monkeypatch):
     assert result.status == "executed"
     assert result.matched_command == "Shut down computer"
     assert calls == [action]
+
+
+def test_remote_command_safely_corrects_board_transcription(monkeypatch):
+    steam = SystemAction("Open Steam", "open_steam")
+    monkeypatch.setattr(
+        "voice_assistant.remote_commands.command_index",
+        lambda language: {"გახსენი სთიმი": steam} if language == "ka" else {},
+    )
+    monkeypatch.setattr("voice_assistant.remote_commands.execute_action", lambda target: None)
+
+    result = execute_text_command("გელა გახსენის თიმი", "ka")
+
+    assert result.status == "executed"
+    assert result.matched_command == "Open Steam"

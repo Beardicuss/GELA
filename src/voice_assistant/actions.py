@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+from ctypes import wintypes
 from dataclasses import dataclass
 from datetime import datetime
 import json
@@ -8,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import time
 
 from PIL import ImageGrab
@@ -34,6 +36,86 @@ PROCESS_TARGETS_PATH = DEFAULT_PROCESS_TARGETS_PATH
 LEARNED_TARGETS_PATH = LEARNED_PROCESS_TARGETS_PATH
 GAME_STATE_PATH = GAME_LIFECYCLE_PATH
 PROFILE_PATH = APP_PROFILES_PATH
+
+
+class _Luid(ctypes.Structure):
+    _fields_ = [("LowPart", wintypes.DWORD), ("HighPart", wintypes.LONG)]
+
+
+class _LuidAndAttributes(ctypes.Structure):
+    _fields_ = [("Luid", _Luid), ("Attributes", wintypes.DWORD)]
+
+
+class _TokenPrivileges(ctypes.Structure):
+    _fields_ = [("PrivilegeCount", wintypes.DWORD), ("Privileges", _LuidAndAttributes * 1)]
+
+
+def _perform_windows_sleep() -> None:
+    """Enable the required token privilege and request Windows standby."""
+    token = wintypes.HANDLE()
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    powrprof = ctypes.WinDLL("powrprof", use_last_error=True)
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.SetSystemPowerState.argtypes = [wintypes.BOOL, wintypes.BOOL]
+    kernel32.SetSystemPowerState.restype = wintypes.BOOL
+    advapi32.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(_Luid)]
+    advapi32.LookupPrivilegeValueW.restype = wintypes.BOOL
+    advapi32.AdjustTokenPrivileges.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    powrprof.SetSuspendState.argtypes = [wintypes.BOOLEAN, wintypes.BOOLEAN, wintypes.BOOLEAN]
+    powrprof.SetSuspendState.restype = wintypes.BOOLEAN
+    if not advapi32.OpenProcessToken(
+        kernel32.GetCurrentProcess(), 0x0020 | 0x0008, ctypes.byref(token)
+    ):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        luid = _Luid()
+        if not advapi32.LookupPrivilegeValueW(None, "SeShutdownPrivilege", ctypes.byref(luid)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        privileges = _TokenPrivileges(1, (_LuidAndAttributes(luid, 0x00000002),))
+        ctypes.set_last_error(0)
+        if not advapi32.AdjustTokenPrivileges(token, False, ctypes.byref(privileges), 0, None, None):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if ctypes.get_last_error() == 1300:
+            raise PermissionError("Windows did not grant the shutdown privilege")
+        if powrprof.SetSuspendState(False, False, False):
+            return
+        error = ctypes.get_last_error()
+        if error != 50:
+            raise ctypes.WinError(error)
+        if kernel32.SetSystemPowerState(True, False):
+            return
+        legacy_error = ctypes.get_last_error()
+        if legacy_error != 50:
+            raise ctypes.WinError(legacy_error)
+        # S0-only Modern Standby systems can reject both suspend APIs with
+        # ERROR_NOT_SUPPORTED. In the interactive session, locking Windows and
+        # switching the display off is the supported entry path into S0 idle.
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.LockWorkStation.restype = wintypes.BOOL
+        user32.SendMessageTimeoutW.restype = wintypes.LPARAM
+        if not user32.LockWorkStation():
+            raise ctypes.WinError(ctypes.get_last_error())
+        result = ctypes.c_size_t()
+        if not user32.SendMessageTimeoutW(
+            0xFFFF, 0x0112, 0xF170, 2, 0x0002, 2_000, ctypes.byref(result)
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+    finally:
+        kernel32.CloseHandle(token)
+
+
+def _request_windows_sleep() -> None:
+    """Schedule standby outside the active voice/mobile command thread."""
+    command = (
+        [sys.executable, "--sleep-helper"]
+        if getattr(sys, "frozen", False)
+        else [sys.executable, "-m", "voice_assistant.sleep_helper"]
+    )
+    subprocess.Popen(command, close_fds=True, **hidden_process_kwargs())
 
 
 @dataclass(frozen=True)
@@ -63,7 +145,10 @@ STATIC_ACTIONS = {
         "ჩაკეტე კომპიუტერი": SystemAction("Lock Windows", "lock_windows"),
         "გამორთე კომპიუტერი": SystemAction("Shut down computer", "power_shutdown"),
         "დაარესტარტე კომპიუტერი": SystemAction("Restart computer", "power_restart"),
-        "დააძინე კომპიუტერი": SystemAction("Put computer to sleep", "power_sleep"),
+        "დაიძინე": SystemAction("Put computer to sleep", "power_sleep"),
+        # The command ASR can separate this compound verb even when it was
+        # spoken naturally. Keep the spaced transcript as a recognition alias.
+        "დაი ძინე": SystemAction("Put computer to sleep", "power_sleep"),
         "დამალე ფანჯარა": SystemAction("Minimize active window", "window_active", "minimize"),
         "ჩაკეცე": SystemAction("Minimize active window", "window_active", "minimize"),
         "ჩაკეცე ფანჯარა": SystemAction("Minimize active window", "window_active", "minimize"),
@@ -177,6 +262,8 @@ def build_action_phrases(
         }
     )
     for entry in entries:
+        if entry.launch_type == "file":
+            continue
         app_name = entry.name
         profile = profile_for(app_name, PROFILE_PATH)
         if profile.preferred_processes:
@@ -732,9 +819,8 @@ def execute_action(action: SystemAction) -> str | None:
         )
         return "restart scheduled in 5 seconds"
     if action.action_id == "power_sleep":
-        if not ctypes.windll.powrprof.SetSuspendState(False, False, False):
-            raise OSError("Windows sleep request failed")
-        return "sleep requested"
+        _request_windows_sleep()
+        return "sleep scheduled"
     if action.action_id == "close_process":
         _close_process_windows(action.value)
         return None

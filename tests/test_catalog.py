@@ -51,6 +51,7 @@ def test_scan_does_not_rewrite_unchanged_catalog(tmp_path, monkeypatch) -> None:
     entry = CatalogEntry("Google Chrome", ["chrome"], "app_id", "chrome-id")
     monkeypatch.setattr(catalog, "_start_apps", lambda: [entry])
     monkeypatch.setattr(catalog, "_steam_games", lambda: [])
+    monkeypatch.setattr(catalog, "_media_files", lambda: [])
     monkeypatch.setattr(catalog, "ALIASES_PATH", tmp_path / "missing-aliases.json")
     output = tmp_path / "apps.json"
 
@@ -98,3 +99,63 @@ def test_duplicate_catalog_names_receive_stable_descriptive_qualifiers() -> None
     assert "Get Help (Microsoft Store)" in names
     assert len({normalize_phrase(entry.name) for entry in result}) == len(result)
     assert all("unity" not in entry.aliases for entry in result if entry.name.startswith("Unity"))
+
+
+def test_media_scan_only_catalogs_allowlisted_extensions(tmp_path) -> None:
+    library = tmp_path / "Playlists"
+    library.mkdir()
+    playlist = library / "Chronicles of the Fallen World.xspf"
+    playlist.write_text("playlist", encoding="utf-8")
+    (library / "notes.txt").write_text("ignored", encoding="utf-8")
+
+    assert catalog._media_files((library,)) == [
+        CatalogEntry(
+            "Chronicles of the Fallen World",
+            ["chronicles of the fallen world"],
+            "file",
+            str(playlist.resolve()),
+        )
+    ]
+
+
+def test_media_file_must_be_supported_and_inside_allowlist(tmp_path) -> None:
+    library = tmp_path / "Playlists"
+    library.mkdir()
+    playlist = library / "Chronicles.xspf"
+    playlist.touch()
+    outside = tmp_path / "Outside.xspf"
+    outside.touch()
+    text_file = library / "notes.txt"
+    text_file.touch()
+
+    assert catalog.is_allowed_media_file(playlist, (library,)) is True
+    assert catalog.is_allowed_media_file(outside, (library,)) is False
+    assert catalog.is_allowed_media_file(text_file, (library,)) is False
+
+
+def test_chronicles_playlist_uses_correct_georgian_command() -> None:
+    playlist = CatalogEntry(
+        "Chronicles of the Fallen World",
+        ["ქრონიკები"],
+        "file",
+        r"C:\Users\User\Music\Playlists\Chronicles of the Fallen World.xspf",
+    )
+
+    phrases = command_phrases([playlist], "ka")
+
+    assert phrases["ჩართე ქრონიკები"] is playlist
+    assert phrases["დაუკარი ქრონიკები"] is playlist
+
+
+def test_georgian_mp3_filename_becomes_direct_play_command() -> None:
+    track = CatalogEntry(
+        "დაღლილი კაცი",
+        ["დაღლილი კაცი"],
+        "file",
+        r"C:\Users\User\Music\Playlists\დაღლილი კაცი.mp3",
+    )
+
+    phrases = command_phrases([track], "ka")
+
+    assert phrases["ჩართე დაღლილი კაცი"] is track
+    assert phrases["დაუკარი დაღლილი კაცი"] is track

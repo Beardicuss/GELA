@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import time
 
-from .catalog import CatalogEntry, executable_process_name
+from .catalog import CatalogEntry, executable_process_name, is_allowed_media_file
 from .app_profiles import APP_PROFILES_PATH, AppProfile, profile_for
 from .game_lifecycle import GAME_LIFECYCLE_PATH, record_game_observation
 from .process_targets import (
@@ -30,6 +30,12 @@ STABLE_EVIDENCE_SECONDS = 0.75
 
 
 def launch(entry: CatalogEntry) -> None:
+    if entry.launch_type == "file":
+        path = Path(entry.launch_value)
+        if not is_allowed_media_file(path):
+            raise ValueError("Media file is outside Gela's allowlisted media folders")
+        os.startfile(str(path.resolve()))  # type: ignore[attr-defined]
+        return
     if entry.launch_type == "app_id":
         os.startfile(f"shell:AppsFolder\\{entry.launch_value}")  # type: ignore[attr-defined]
         return
@@ -182,6 +188,9 @@ def launch_verified(
     app_timeout: float = APP_VERIFICATION_SECONDS,
     game_timeout: float = GAME_VERIFICATION_SECONDS,
 ) -> str:
+    if entry.launch_type == "file":
+        launch(entry)
+        return f"verified media dispatched={entry.name}"
     profile = profile_for(entry.name, PROFILE_PATH)
     expected_processes = _configured_process_names(entry, profile)
     before_processes = _running_process_names()

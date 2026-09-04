@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 import json
+import logging
 from typing import Literal
 
 from .actions import SystemAction, build_action_phrases, execute_action
@@ -82,7 +84,40 @@ def resolve_text_command(transcript: str, language: str) -> tuple[str | None, Co
             target = index.get(candidate)
             if target is not None:
                 return candidate, target
+        for candidate in candidates:
+            fuzzy = _unique_fuzzy_match(candidate, index)
+            if fuzzy is not None:
+                phrase, target = fuzzy
+                logging.info("Corrected remote command transcription: %s -> %s", candidate, phrase)
+                return phrase, target
     return None, None
+
+
+def _unique_fuzzy_match(heard: str, phrases: dict[str, CommandTarget]) -> tuple[str, CommandTarget] | None:
+    """Return only a high-confidence, uniquely closest allowlisted command."""
+    if not heard or len(heard.split()) > 8:
+        return None
+    ranked: list[tuple[float, str, CommandTarget]] = []
+    for phrase, target in phrases.items():
+        if abs(len(phrase.split()) - len(heard.split())) > 1 or phrase[0] != heard[0]:
+            continue
+        maximum_length = max(len(phrase), len(heard))
+        if abs(len(phrase) - len(heard)) > max(3, maximum_length // 5):
+            continue
+        score = SequenceMatcher(None, heard, phrase).ratio()
+        if score >= 0.86:
+            ranked.append((score, phrase, target))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    distinct: list[tuple[float, str, CommandTarget]] = []
+    for item in ranked:
+        if any(item[2] == existing[2] for existing in distinct):
+            continue
+        distinct.append(item)
+        if len(distinct) == 2:
+            break
+    if not distinct or (len(distinct) > 1 and distinct[0][0] - distinct[1][0] < 0.08):
+        return None
+    return distinct[0][1], distinct[0][2]
 
 
 def execute_text_command(transcript: str, language: str = "ka") -> RemoteCommandResult:

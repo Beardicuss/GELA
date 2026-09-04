@@ -15,6 +15,16 @@ from .storage import atomic_write_text
 
 CATALOG_PATH = USER_CONFIG_ROOT / "apps.json"
 ALIASES_PATH = USER_CONFIG_ROOT / "aliases.json"
+PLAYLIST_EXTENSIONS = frozenset({".xspf", ".m3u", ".m3u8", ".pls"})
+AUDIO_EXTENSIONS = frozenset({".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg", ".wma", ".opus"})
+VIDEO_EXTENSIONS = frozenset({".mp4", ".mkv", ".avi", ".mov", ".webm", ".wmv", ".m4v"})
+IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff"})
+MEDIA_EXTENSIONS = PLAYLIST_EXTENSIONS | AUDIO_EXTENSIONS | VIDEO_EXTENSIONS | IMAGE_EXTENSIONS
+MEDIA_ROOTS = (
+    Path.home() / "Music" / "Playlists",
+    Path.home() / "Music" / "Videos",
+    Path.home() / "Pictures",
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +52,8 @@ def executable_process_name(launch_value: str) -> str | None:
 
 def _entry_qualifier(entry: CatalogEntry) -> str:
     value = entry.launch_value
+    if entry.launch_type == "file":
+        return Path(value).parent.name.strip() or "Media"
     parsed = urlparse(value)
     if parsed.scheme in {"http", "https"} and parsed.hostname:
         return parsed.hostname.removeprefix("www.")
@@ -185,8 +197,45 @@ def _steam_games() -> list[CatalogEntry]:
     return entries
 
 
+def is_allowed_media_file(path: Path, roots: tuple[Path, ...] = MEDIA_ROOTS) -> bool:
+    """Return whether a supported media file is inside a dedicated media root."""
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return False
+    if not resolved.is_file() or resolved.suffix.casefold() not in MEDIA_EXTENSIONS:
+        return False
+    for root in roots:
+        try:
+            resolved.relative_to(root.resolve(strict=True))
+            return True
+        except (OSError, ValueError, RuntimeError):
+            continue
+    return False
+
+
+def _media_files(roots: tuple[Path, ...] | None = None) -> list[CatalogEntry]:
+    roots = MEDIA_ROOTS if roots is None else roots
+    entries: list[CatalogEntry] = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*"):
+            if not is_allowed_media_file(path, roots):
+                continue
+            entries.append(
+                CatalogEntry(
+                    name=path.stem,
+                    aliases=[normalize_phrase(path.stem)],
+                    launch_type="file",
+                    launch_value=str(path.resolve()),
+                )
+            )
+    return entries
+
+
 def scan_catalog_with_status(path: Path = CATALOG_PATH) -> tuple[list[CatalogEntry], bool]:
-    entries = _start_apps() + _steam_games()
+    entries = _start_apps() + _steam_games() + _media_files()
     unique: dict[tuple[str, str], CatalogEntry] = {}
     for entry in entries:
         unique[(entry.launch_type, entry.launch_value)] = entry

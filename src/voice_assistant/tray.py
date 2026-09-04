@@ -16,6 +16,9 @@ from .catalog import CATALOG_PATH
 from .catalog_monitor import CatalogMonitor
 from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, USER_DATA_ROOT, load_settings
 from .mobile_bridge import MOBILE_TRANSFER_ROOT, MobileBridgeService, ensure_transfer_directories
+from .mcu_face import McuFaceBridge
+from .mcu_terminal import McuTerminalService
+from .actions import SystemAction, execute_action
 from .responses import VoiceResponses
 from .single_instance import SingleInstanceLock
 from .startup import install_startup, startup_shortcut, uninstall_startup
@@ -74,6 +77,11 @@ def create_icon_image(status: str = "starting") -> Image.Image:
 class TrayApplication:
     def __init__(self) -> None:
         self.controls = WorkerControls(self._status_changed)
+        self.mcu_face = McuFaceBridge()
+        self.controls.add_status_callback(self.mcu_face.on_status)
+        self.controls.add_response_callback(
+            lambda event, active: self.mcu_face.on_response(event, active, self.controls.status)
+        )
         settings = load_settings()
         catalog_settings = settings.catalog
         self.local_qa_enabled = settings.question_answering.enabled
@@ -96,6 +104,12 @@ class TrayApplication:
         self.mobile_window_process: subprocess.Popen | None = None
         self.mobile_bridge = MobileBridgeService(
             audio_recognizer=self.controls.transcribe_remote_audio,
+        )
+        self.mcu_terminal = McuTerminalService(
+            audio_recognizer=self.controls.transcribe_remote_audio,
+            status_supplier=self._mcu_status,
+            cancel=self._cancel_from_mcu,
+            toggle_mute=lambda: execute_action(SystemAction("Toggle Mute", "volume_mute")),
         )
         self.icon = pystray.Icon("GelaVoiceAssistant", create_icon_image(), "Gela Voice Assistant")
         self.icon.menu = self._build_menu()
@@ -201,8 +215,21 @@ class TrayApplication:
         self.icon.icon = create_icon_image(status)
         self.icon.update_menu()
 
+    def _mcu_status(self) -> dict[str, object]:
+        return {
+            "gelaStatus": self.controls.status,
+            "faceState": self.mcu_face.desired_state,
+            "paused": self.controls.pause_event.is_set(),
+            "mobileConnected": self.mobile_bridge.devices.any_recently_seen(),
+        }
+
+    def _cancel_from_mcu(self) -> None:
+        VoiceResponses.stop()
+        self.controls.request_cancel()
+
     def _setup(self, icon: pystray.Icon) -> None:
         icon.visible = True
+        self.mcu_face.start()
         self.worker_thread = threading.Thread(
             target=run_worker,
             args=(self.controls,),
@@ -221,6 +248,8 @@ class TrayApplication:
                 f"მობილური ხიდი ვერ ჩაირთო: {self.mobile_bridge.error}",
                 "Gela",
             )
+        if not self.mcu_terminal.start():
+            icon.notify(f"MCU Wi-Fi bridge could not start: {self.mcu_terminal.error}", "Gela")
 
     def _toggle_pause(self, icon, item) -> None:
         VoiceResponses.stop()
@@ -489,13 +518,17 @@ class TrayApplication:
     def _exit(self, icon, item) -> None:
         VoiceResponses.stop()
         self.controls.stop_event.set()
+        self.mcu_terminal.stop()
         self.mobile_bridge.stop()
+        self.mcu_face.stop()
         icon.stop()
 
     def run(self) -> None:
         self.icon.run(setup=self._setup)
         self.controls.stop_event.set()
+        self.mcu_terminal.stop()
         self.mobile_bridge.stop()
+        self.mcu_face.stop()
         if self.worker_thread is not None:
             self.worker_thread.join(timeout=3)
         if self.catalog_thread is not None:
@@ -503,6 +536,10 @@ class TrayApplication:
 
 
 def main() -> int:
+    if "--sleep-helper" in sys.argv:
+        from .sleep_helper import main as sleep_helper_main
+
+        return sleep_helper_main()
     if "--mobile-connection" in sys.argv:
         from .mobile_connection_window import main as mobile_connection_main
 

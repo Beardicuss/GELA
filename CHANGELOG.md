@@ -5,8 +5,29 @@ practical.
 
 ## Unreleased
 
+### Changed
+
+- Replaced the Georgian standby command with `დაიძინე`, including tolerance
+  for the speech recognizer's spaced `დაი ძინე` transcript.
+- Fixed standby on Windows by explicitly enabling `SeShutdownPrivilege`, using
+  the correct one-byte Win32 return type, and trusting the exact embedded
+  wake-command result over corrupted mixed-script retranscription.
+- Run the final standby transition in a delayed helper process so mobile and
+  voice command threads can finish cleanly, with a dedicated failure log.
+- Fall back to Windows `SetSystemPowerState` when Modern Standby firmware
+  rejects `SetSuspendState` with `ERROR_NOT_SUPPORTED`.
+- On S0-only Modern Standby systems that reject both suspend APIs, lock the
+  interactive session and switch off the display to trigger Modern Standby.
+
 ### Added
 
+- Automatic USB discovery and reconnecting state bridge for the ESP32-S3
+  mPython Board 3.0 Gela face, using an allowlisted six-state serial protocol.
+- Board face reactions for Gela listening, processing, speech, successful
+  execution, failures, and idle operation.
+- Restored automatic allowlisted playlist/media catalog discovery, with both
+  `ჩართე` and `დაუკარი` commands and persistent Georgian aliases such as
+  `ქრონიკები` and `ინსაიტი`.
 - Authenticated private-HTTPS screen permission grant/revoke for biometrically confirmed paired phones; PC-side approval remains a fallback.
 - Primary-monitor capture by default with an authenticated optional all-screens mode for readable phone scaling.
 - Permission-gated, private-HTTPS-only PC screen frames for Mobile's view-only viewer.

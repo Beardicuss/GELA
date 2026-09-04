@@ -129,6 +129,18 @@ class DeviceStore:
             for device_id, item in devices.items()
         ]
 
+    def any_recently_seen(self, maximum_age_seconds: float = 90.0) -> bool:
+        now = time.time()
+        with self._lock:
+            devices = self._load()
+        for item in devices.values():
+            try:
+                if now - float(item.get("last_seen_epoch", 0)) <= maximum_age_seconds:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        return False
+
     def revoke(self, device_id: str) -> bool:
         with self._lock:
             devices = self._load()

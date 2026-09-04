@@ -32,7 +32,9 @@ def test_static_georgian_actions_are_routed() -> None:
     assert phrases["ჩაკეტე კომპიუტერი"].action_id == "lock_windows"
     assert phrases["გამორთე კომპიუტერი"].action_id == "power_shutdown"
     assert phrases["დაარესტარტე კომპიუტერი"].action_id == "power_restart"
-    assert phrases["დააძინე კომპიუტერი"].action_id == "power_sleep"
+    assert phrases["დაიძინე"].action_id == "power_sleep"
+    assert phrases["დაი ძინე"].action_id == "power_sleep"
+    assert "დააძინე კომპიუტერი" not in phrases
     assert phrases["გახსენი ვაიფაი"].value == "ms-settings:network-wifi"
     assert phrases["ჩართე ვაიფაი"] == SystemAction("Turn on Wi-Fi", "radio", "WiFi:on")
     assert phrases["გამორთე ბლუთუზი"].value == "Bluetooth:off"
@@ -393,18 +395,12 @@ def test_power_actions_use_only_fixed_windows_operations(monkeypatch) -> None:
     ]
 
 
-def test_sleep_action_uses_windows_suspend_api(monkeypatch) -> None:
+def test_sleep_action_uses_privileged_windows_suspend_helper(monkeypatch) -> None:
     calls = []
-    monkeypatch.setattr(
-        actions.ctypes.windll.powrprof,
-        "SetSuspendState",
-        lambda hibernate, force, disable_wake: calls.append(
-            (hibernate, force, disable_wake)
-        ) or True,
-    )
+    monkeypatch.setattr(actions, "_request_windows_sleep", lambda: calls.append("sleep"))
 
-    assert execute_action(SystemAction("Sleep", "power_sleep")) == "sleep requested"
-    assert calls == [(False, False, False)]
+    assert execute_action(SystemAction("Sleep", "power_sleep")) == "sleep scheduled"
+    assert calls == ["sleep"]
 
 
 def test_brightness_action_is_limited_to_ten_percent(monkeypatch) -> None:

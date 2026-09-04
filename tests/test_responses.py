@@ -21,3 +21,16 @@ def test_state_details_select_reusable_response_events() -> None:
 
 def test_recorded_voice_response_coverage_is_complete() -> None:
     assert VoiceResponses().coverage() == {"missing": [], "orphaned": []}
+
+
+def test_response_callback_wraps_fallback_playback(monkeypatch, tmp_path) -> None:
+    config = tmp_path / "responses.json"
+    config.write_text('{"enabled": false, "responses": {}}', encoding="utf-8")
+    events = []
+    monkeypatch.setattr(responses.winsound, "MessageBeep", lambda _fallback: None)
+
+    VoiceResponses(config, event_callback=lambda event, active: events.append((event, active))).play(
+        "launch_failed"
+    )
+
+    assert events == [("launch_failed", True), ("launch_failed", False)]

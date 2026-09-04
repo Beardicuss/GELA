@@ -91,6 +91,21 @@ Mute and unmute use the same Windows toggle. The result depends on the current m
 
 ## Media playback
 
+Playlists and supported media files under `Music\Playlists`, `Music\Videos`,
+and `Pictures` are included in Gela's allowlisted catalog. For the installed
+playlists, use either `ჩართე` or `დაუკარი`:
+
+- `ჩართე ქრონიკები` — opens `Chronicles of the Fallen World` in its associated player
+- `დაუკარი ქრონიკები` — opens the same playlist
+- `ჩართე ინსაიტი` / `დაუკარი ინსაიტი` — opens `Insight`
+- `ჩართე ეთერნიტი` / `დაუკარი ეთერნიტი` — opens `Trees of Eternity`
+- `ჩართე დაღლილი კაცი` / `დაუკარი დაღლილი კაცი` — opens `დაღლილი კაცი.mp3`
+
+New supported playlist and audio files, including `.xspf`, `.mp3`, and `.wav`,
+are discovered automatically. A Georgian filename works as
+its spoken target without configuration; an English filename can be assigned a
+Georgian spoken name in Gela's Alias Manager.
+
 - `დაუკარი მუსიკა` — play/pause toggle
 - `შეაჩერე მუსიკა` — play/pause toggle
 - `გააგრძელე მუსიკა` — play/pause toggle
@@ -129,7 +144,7 @@ These exact Georgian commands request fixed Windows power operations:
 
 - `გამორთე კომპიუტერი` — shut down after five seconds;
 - `დაარესტარტე კომპიუტერი` — restart after five seconds;
-- `დააძინე კომპიუტერი` — enter standby/sleep.
+- `დაიძინე` — enter standby/sleep.
 
 Shutdown and restart do not force-close applications, so Windows can still show
 an unsaved-work warning. Arbitrary shell commands and file deletion remain
