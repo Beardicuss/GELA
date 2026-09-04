@@ -17,10 +17,18 @@ from .storage import atomic_write_text
 
 
 MCU_PORT = 8767
+MCU_PROTOCOL_VERSION = 2
 MCU_TOKEN_PATH = USER_DATA_ROOT / "mcu" / "board_token.txt"
-MAX_MCU_AUDIO_BYTES = 256_000
-
-
+MAX_MCU_AUDIO_BYTES = 180_000
+MCU_CAPABILITIES = (
+    "face-state-v1",
+    "push-audio-pcm8k-v1",
+    "cancel-v1",
+    "toggle-mute-v1",
+    "status-v2",
+    "pc-health-v1",
+)
+MCU_EVENT_TYPES = frozenset({"boot", "wifi-connected", "pc-reconnected", "command-started", "command-finished", "action"})
 def load_mcu_token(path: Path = MCU_TOKEN_PATH) -> str:
     try:
         token = path.read_text(encoding="ascii").strip()
@@ -42,6 +50,8 @@ def create_mcu_handler(
     status_supplier: Callable[[], dict[str, object]],
     cancel: Callable[[], None],
     toggle_mute: Callable[[], None],
+    command_observer: Callable[[RemoteCommandResult], None] = lambda _result: None,
+    connection_observer: Callable[[str], None] = lambda _address: None,
 ) -> type[BaseHTTPRequestHandler]:
     class McuHandler(BaseHTTPRequestHandler):
         server_version = "GelaMCU/1"
@@ -76,17 +86,33 @@ def create_mcu_handler(
                 self._json(HTTPStatus.NOT_FOUND, {"message": "Endpoint not found."})
                 return
             if not self._authorized():
+                logging.warning("Rejected unauthenticated MCU request from %s", self.client_address[0])
                 self._json(HTTPStatus.UNAUTHORIZED, {"message": "Authentication required."})
                 return
+            connection_observer(self.client_address[0])
             payload = dict(status_supplier())
-            payload.update(protocolVersion=1, computerName=platform.node() or "Windows PC")
+            payload.update(
+                protocolVersion=MCU_PROTOCOL_VERSION,
+                minimumProtocolVersion=1,
+                capabilities=list(MCU_CAPABILITIES),
+                computerName=platform.node() or "Windows PC",
+            )
             self._json(HTTPStatus.OK, payload)
 
         def do_POST(self) -> None:  # noqa: N802
             if not self._authorized():
+                logging.warning("Rejected unauthenticated MCU request from %s", self.client_address[0])
                 self._json(HTTPStatus.UNAUTHORIZED, {"message": "Authentication required."})
                 return
+            connection_observer(self.client_address[0])
             if self.path == "/v1/mcu/audio":
+                try:
+                    declared_size = int(self.headers.get("Content-Length", "0"))
+                except ValueError:
+                    declared_size = 0
+                if declared_size > MAX_MCU_AUDIO_BYTES:
+                    self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"message": "PCM audio is too large."})
+                    return
                 audio = self._body(MAX_MCU_AUDIO_BYTES)
                 if audio is None or len(audio) < 1_600:
                     self._json(HTTPStatus.BAD_REQUEST, {"message": "Invalid PCM audio."})
@@ -100,6 +126,7 @@ def create_mcu_handler(
                         float(getattr(recognized, "confidence", 0.0)),
                     )
                     result = executor(transcript, "ka")
+                    command_observer(result)
                 except TimeoutError as exc:
                     self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"message": str(exc)})
                     return
@@ -124,6 +151,20 @@ def create_mcu_handler(
                 callback()
                 self._json(HTTPStatus.OK, {"status": "executed", "action": action})
                 return
+            if self.path == "/v1/mcu/event":
+                raw = self._body(512)
+                try:
+                    event = json.loads(raw.decode("ascii")) if raw else {}
+                    event_type = event["type"]
+                    detail = str(event.get("detail", ""))[:120]
+                except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError):
+                    event_type, detail = "", ""
+                if event_type not in MCU_EVENT_TYPES:
+                    self._json(HTTPStatus.BAD_REQUEST, {"message": "Unsupported board event."})
+                    return
+                logging.info("MCU event from %s: %s%s", self.client_address[0], event_type, f" ({detail})" if detail else "")
+                self._json(HTTPStatus.OK, {"status": "accepted"})
+                return
             self._json(HTTPStatus.NOT_FOUND, {"message": "Endpoint not found."})
 
     return McuHandler
@@ -136,6 +177,12 @@ class McuTerminalService:
         self.server: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
         self.error: str | None = None
+        self._last_client_address: str | None = None
+
+    def _observe_connection(self, address: str) -> None:
+        if address != self._last_client_address:
+            logging.info("Gela MCU Wi-Fi connected from %s", address)
+            self._last_client_address = address
 
     def start(self) -> bool:
         if self.thread is not None and self.thread.is_alive():
@@ -143,7 +190,11 @@ class McuTerminalService:
         try:
             self.server = ThreadingHTTPServer(
                 ("0.0.0.0", MCU_PORT),
-                create_mcu_handler(self.token, **self.handler_options),
+                create_mcu_handler(
+                    self.token,
+                    connection_observer=self._observe_connection,
+                    **self.handler_options,
+                ),
             )
         except OSError as exc:
             self.error = str(exc)
@@ -151,6 +202,7 @@ class McuTerminalService:
         self.thread = threading.Thread(target=self.server.serve_forever, name="gela-mcu-wifi", daemon=True)
         self.thread.start()
         self.error = None
+        logging.info("Gela MCU Wi-Fi bridge listening on port %d (protocol %d)", MCU_PORT, MCU_PROTOCOL_VERSION)
         return True
 
     def stop(self) -> None:
@@ -161,3 +213,4 @@ class McuTerminalService:
             self.thread.join(timeout=3)
         self.server = None
         self.thread = None
+        self._last_client_address = None

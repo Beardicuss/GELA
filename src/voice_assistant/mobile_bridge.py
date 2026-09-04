@@ -407,6 +407,7 @@ def create_handler(
     screen_status: Callable[[], ScreenSharingStatus] = screen_sharing_status,
     screen_grant: Callable[[], ScreenSharingStatus] = grant_screen_sharing,
     screen_revoke: Callable[[], ScreenSharingStatus] = revoke_screen_sharing,
+    command_observer: Callable[[RemoteCommandResult], None] = lambda _result: None,
 ) -> type[BaseHTTPRequestHandler]:
     limiter = AttemptLimiter()
     discovery_limiter = AttemptLimiter(limit=30)
@@ -830,6 +831,7 @@ def create_handler(
                     self._json(HTTPStatus.BAD_REQUEST, {"message": "Invalid command request."})
                     return
                 result = executor(transcript, language)
+                command_observer(result)
                 payload = asdict(result)
                 payload["requestId"] = request_id
                 payload["matchedCommand"] = payload.pop("matched_command")
@@ -852,12 +854,14 @@ class MobileBridgeService:
         audio_recognizer: Callable[[bytes, int, int], object] | None = None,
         discovery_port: int = DEFAULT_DISCOVERY_PORT,
         bridge_id_path: Path = BRIDGE_ID_PATH,
+        command_observer: Callable[[RemoteCommandResult], None] = lambda _result: None,
     ) -> None:
         self.host = host
         self.port = port
         self.status_path = status_path
         self.regenerate_path = regenerate_path
         self.audio_recognizer = audio_recognizer
+        self.command_observer = command_observer
         self.discovery_port = discovery_port
         self.bridge_id = load_bridge_id(bridge_id_path)
         self.pairing = PairingSession()
@@ -954,6 +958,7 @@ class MobileBridgeService:
                     self.devices,
                     audio_recognizer=self.audio_recognizer,
                     bridge_id=self.bridge_id,
+                    command_observer=self.command_observer,
                 ),
             )
         except OSError as exc:

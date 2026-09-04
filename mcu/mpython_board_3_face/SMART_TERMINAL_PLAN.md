@@ -12,7 +12,7 @@ small overlays appear only when useful. Existing USB control remains a fallback.
 - Every feature must work on Wi-Fi power with no PC USB connection.
 - Changes are tested and installed locally, but committed only after user approval.
 
-## Phase 0 — Baseline and protocol hardening
+## Phase 0 — Baseline and protocol hardening (implemented)
 
 1. Back up the working board firmware and configuration (excluding credentials
    from Git and logs).
@@ -26,7 +26,14 @@ small overlays appear only when useful. Existing USB control remains a fallback.
 Acceptance: all existing behavior survives disconnects, PC restarts, DHCP address
 changes, and board power cycles.
 
-## Phase 1 — Smart push-to-talk
+Implementation checkpoint: protocol v2 advertises explicit capabilities while
+remaining compatible with v1, board event bodies are authenticated and bounded,
+and reconnect attempts use capped exponential backoff plus rediscovery. Automated
+tests pass, the installed PC bridge recovered after a forced restart, and the
+physical board recovered after reset at `192.168.100.7`. A real router-assigned
+address change remains a field check the next time DHCP changes the PC address.
+
+## Phase 1 — Smart push-to-talk (implemented and physically verified)
 
 Target interaction: hold A, speak, release A, then send. Minimum duration 300 ms;
 maximum duration 15 seconds; visible recording/progress state; release never clips
@@ -47,7 +54,13 @@ implementation begins with a hardware spike:
 Acceptance: short and long Georgian commands are not clipped, releasing A sends
 once, silence is rejected, and the PC microphone keeps operating simultaneously.
 
-## Phase 2 — Spoken responses on the board
+## Phase 2 — Spoken responses on the board (deferred after hardware test)
+
+The board's local speaker works in isolated tests, but network-response playback
+repeatedly crashed/restarted the vendor firmware and could leave the board unable
+to boot until recovery. The response endpoint and playback code were removed.
+PC response audio remains the safe default; revisit only with different firmware
+or a proven streaming/audio driver.
 
 1. Add a board/PC output preference: PC, board, or both; default to PC so current
    behavior is unchanged.
@@ -92,19 +105,30 @@ show only the action result. Debounce touch input and rate-limit volume changes.
 Acceptance: accidental touches do not repeat, media controls work while Gela is
 listening, and the face returns after the temporary now-playing card.
 
-## Phase 5 — PC health monitor
+## Phase 5 — PC health monitor (core card implemented)
 
 1. Add a small cached PC metrics service: CPU, memory, disk-free percentage,
    network state, and laptop battery where available.
 2. GPU load/temperature is optional: use vendor-supported data when installed and
    display `N/A` otherwise—never fail the entire monitor.
-3. Open the health card with a deliberate gesture (proposed: hold N for one second)
-   and rotate pages; do not permanently clutter the face.
+3. Hold touch N for 0.7 seconds to open a compact 10-second health card, then
+   return automatically to the current face state.
 4. Add threshold notifications for low disk, high temperature, and low battery,
    with hysteresis/cooldowns to prevent repeated alerts.
 
 Acceptance: polling is lightweight, unavailable sensors are handled honestly, and
 values do not block voice or animation traffic.
+
+Implementation checkpoint: dependency-free Windows sampling provides cached CPU,
+RAM, system-disk free space, network, battery, and AC state through the existing
+authenticated status request. GPU data and threshold notifications remain optional
+follow-up work.
+
+The N dashboard now has two deliberate gestures: tap N for current Gela activity
+and the latest board/mobile command result; hold N for health. Board-originated
+commands show immediate six-second feedback, while mobile results are retained for
+the next activity-card view. Georgian transcripts are transliterated for the
+board's Latin-only embedded font.
 
 ## Phase 6 — Notification display
 
@@ -153,16 +177,28 @@ always override presence automation.
 
 ## Delivery order
 
-1. Baseline/protocol hardening
-2. Smart push-to-talk
-3. Privacy mode
-4. Media controller
-5. Board spoken responses
-6. Health monitor
-7. Gela-owned notifications
-8. Offline/WOL controls
-9. Presence observe-only mode, then opt-in automation
-10. Optional Windows/app notifications and richer spoken answers
+1. Encrypted recovery backups to disk D (off-device; suitable for Drive upload)
+2. Baseline/protocol hardening
+3. Smart push-to-talk
+4. Privacy mode
+5. Media controller
+6. Board spoken responses
+7. Health monitor
+8. Gela-owned notifications
+9. Offline/WOL controls
+10. Presence observe-only mode, then opt-in automation
+11. Optional Windows/app notifications and richer spoken answers
 
 Each phase ends with unit tests, physical-board tests, Wi-Fi-only testing from a
 charger, PC/mobile regression testing, and a user checkpoint before the next phase.
+
+## Recovery checkpoint — encrypted off-device backup
+
+Before the feature phases, add a versioned `.gelabackup` archive stored under
+`D:\Gela Backups`. It contains personal settings, aliases, routines, mobile pairing
+identities, and the MCU authentication token. It excludes logs, models, generated
+catalog/audit/runtime data, screen captures, and the board's Wi-Fi password.
+
+The archive uses password-derived AES-256-GCM authenticated encryption, records a
+SHA-256 manifest, restores only an explicit path allowlist, and never stores the
+password. The user can copy the encrypted file to Google Drive for an off-site copy.

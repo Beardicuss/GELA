@@ -16,7 +16,11 @@ def main() -> None:
     parser.add_argument("port")
     parser.add_argument("--hold", type=float, default=1.0)
     args = parser.parse_args()
-    with serial.Serial(args.port, 115200, timeout=0.2, write_timeout=1) as connection:
+    with serial.Serial(args.port, 115200, timeout=0.2, write_timeout=3) as connection:
+        # Opening this ESP32-S3 serial port can reset the board.  Let main.py
+        # finish booting before writing, otherwise Windows may time out while
+        # the USB CDC endpoint is being re-enumerated.
+        time.sleep(4)
         connection.reset_input_buffer()
         for state in STATES:
             connection.write(("GELA1 STATE " + state + "\n").encode("ascii"))

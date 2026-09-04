@@ -14,10 +14,12 @@ import pystray
 from . import __version__
 from .catalog import CATALOG_PATH
 from .catalog_monitor import CatalogMonitor
+from .command_activity import CommandActivityStore
 from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, USER_DATA_ROOT, load_settings
 from .mobile_bridge import MOBILE_TRANSFER_ROOT, MobileBridgeService, ensure_transfer_directories
 from .mcu_face import McuFaceBridge
 from .mcu_terminal import McuTerminalService
+from .pc_health import PcHealthMonitor
 from .actions import SystemAction, execute_action
 from .responses import VoiceResponses
 from .single_instance import SingleInstanceLock
@@ -78,6 +80,8 @@ class TrayApplication:
     def __init__(self) -> None:
         self.controls = WorkerControls(self._status_changed)
         self.mcu_face = McuFaceBridge()
+        self.pc_health = PcHealthMonitor()
+        self.command_activity = CommandActivityStore()
         self.controls.add_status_callback(self.mcu_face.on_status)
         self.controls.add_response_callback(
             lambda event, active: self.mcu_face.on_response(event, active, self.controls.status)
@@ -101,15 +105,18 @@ class TrayApplication:
         self.calibration_process: subprocess.Popen | None = None
         self.recognition_test_process: subprocess.Popen | None = None
         self.profile_manager_process: subprocess.Popen | None = None
+        self.recovery_process: subprocess.Popen | None = None
         self.mobile_window_process: subprocess.Popen | None = None
         self.mobile_bridge = MobileBridgeService(
             audio_recognizer=self.controls.transcribe_remote_audio,
+            command_observer=lambda result: self.command_activity.record("MOBILE", result),
         )
         self.mcu_terminal = McuTerminalService(
             audio_recognizer=self.controls.transcribe_remote_audio,
             status_supplier=self._mcu_status,
             cancel=self._cancel_from_mcu,
             toggle_mute=lambda: execute_action(SystemAction("Toggle Mute", "volume_mute")),
+            command_observer=lambda result: self.command_activity.record("BOARD", result),
         )
         self.icon = pystray.Icon("GelaVoiceAssistant", create_icon_image(), "Gela Voice Assistant")
         self.icon.menu = self._build_menu()
@@ -187,6 +194,7 @@ class TrayApplication:
                 pystray.Menu(
                     pystray.MenuItem("პარამეტრების გახსნა", self._open_settings_window),
                     pystray.MenuItem("Gela-ს მონაცემთა საქაღალდე", lambda icon, item: self._open_path(USER_DATA_ROOT)),
+                    pystray.MenuItem("დაშიფრული სარეზერვო ასლი", self._open_recovery_window),
                     pystray.MenuItem(
                         "Windows-თან ერთად გაშვება",
                         self._toggle_startup,
@@ -221,6 +229,8 @@ class TrayApplication:
             "faceState": self.mcu_face.desired_state,
             "paused": self.controls.pause_event.is_set(),
             "mobileConnected": self.mobile_bridge.devices.any_recently_seen(),
+            "health": self.pc_health.snapshot(),
+            "activity": self.command_activity.snapshot(self.controls.status),
         }
 
     def _cancel_from_mcu(self) -> None:
@@ -501,6 +511,17 @@ class TrayApplication:
         ensure_transfer_directories()
         self._open_path(MOBILE_TRANSFER_ROOT)
 
+    def _open_recovery_window(self, icon, item) -> None:
+        if self.recovery_process is not None and self.recovery_process.poll() is None:
+            icon.notify("Gela Recovery უკვე გახსნილია", "Gela")
+            return
+        command = (
+            [sys.executable, "--recovery"]
+            if getattr(sys, "frozen", False)
+            else [sys.executable, "-m", "voice_assistant.recovery_window"]
+        )
+        self.recovery_process = subprocess.Popen(command, close_fds=True)
+
     @staticmethod
     def _open_text_file(path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -544,6 +565,10 @@ def main() -> int:
         from .mobile_connection_window import main as mobile_connection_main
 
         return mobile_connection_main()
+    if "--recovery" in sys.argv:
+        from .recovery_window import main as recovery_main
+
+        return recovery_main()
     if "--catalog-window" in sys.argv:
         from .catalog_window import main as catalog_window_main
 

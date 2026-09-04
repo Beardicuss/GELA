@@ -5,6 +5,27 @@ practical.
 
 ## Unreleased
 
+- Added password-protected Gela recovery backups on disk D with authenticated
+  AES-256-GCM encryption, Scrypt password derivation, integrity verification,
+  strict restore allowlisting, and a tray-accessible recovery window.
+- Hardened the mPython Board Wi-Fi bridge with protocol/capability negotiation,
+  authenticated structured lifecycle events, bounded event payloads, clearer
+  failure states, and exponential reconnect/discovery backoff.
+- Hardened the board's USB protocol tester against the ESP32-S3 reset that can
+  occur when Windows opens its serial port.
+- Replaced fixed four-second board recording with hold-A/release-to-send smart
+  push-to-talk, a 300 ms minimum, 250 ms release tail, and reliable five-second
+  hardware cap. Upload and recognition run outside the animation loop so the
+  face stays responsive while Gela processes the command.
+- Added an MCU PC-health card opened by holding touch N. It shows cached CPU,
+  RAM, system-disk free space, network, and battery/charging state for 10 seconds
+  before returning to the animated face.
+- Added smart board/mobile command feedback and an N-tap activity card showing
+  the current Gela state, recognized command, matched target, result, and source.
+  Georgian transcripts are transliterated for the board's embedded Latin font.
+- Removed the experimental board-speaker response path after physical testing
+  exposed repeatable vendor-firmware crashes. PC response playback remains active.
+
 ### Changed
 
 - Replaced the Georgian standby command with `დაიძინე`, including tolerance

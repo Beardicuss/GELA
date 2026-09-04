@@ -175,6 +175,19 @@ Optional online modules for current weather and Wikipedia lookup are independent
 
 ## Windows release
 
+### Encrypted recovery backups
+
+Use **პარამეტრები → დაშიფრული სარეზერვო ასლი** from the tray to create a
+`.gelabackup` file. The default destination is `D:\Gela Backups`, making it easy
+to copy the encrypted file to Google Drive. The archive contains personal Gela
+settings, aliases, routines, paired-mobile identity data, and the MCU token. It
+excludes logs, models, generated catalogs, runtime state, and the board's Wi-Fi
+password. The recovery password is never stored and cannot be recovered.
+
+Close Gela before restoring a backup, open the recovery utility, select the
+verified archive, and enter its password. Restoration replaces only explicitly
+allowlisted configuration files.
+
 Build the standalone, windowless Windows package with:
 
 ```powershell
