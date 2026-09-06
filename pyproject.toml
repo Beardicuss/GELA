@@ -14,7 +14,7 @@ dependencies = [
     "pystray==0.19.5",
     "pyserial==3.5",
     "sounddevice==0.5.3",
-    "sherpa-onnx==1.13.4",
+    "sherpa-onnx==1.13.7",
     "vosk==0.3.45",
 ]
 
