@@ -13,9 +13,12 @@ responses, settings, runtime state, tray assets, and packaging metadata. Tests
 must not require downloaded ASR models, microphone hardware, installed games, or
 network access.
 
-Hardware tests will be added separately under `microbit/` because they require a
-physical board. Each hardware phase must also provide a host-side simulator so
-the protocol and safety behaviour remain testable in GitHub Actions.
+Host-side board protocol and firmware-contract tests run in the normal suite.
+Physical mPython Board 3.0 validation additionally covers clean boot, Wi-Fi
+reconnection, every face asset, repeated push-to-talk commands, mute toggling,
+temporary-recording storage headroom, and USB/power-cycle recovery. Hardware-only
+checks are documented under `mcu/mpython_board_3_face/` and must retain a
+host-testable protocol boundary for GitHub Actions.
 
 GitHub Actions runs the suite on Windows with Python 3.11, 3.12, and 3.13 for
 every pull request and push to `main`.

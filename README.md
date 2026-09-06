@@ -10,12 +10,25 @@
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D4)](https://github.com/Beardicuss/GELA)
 [![License: Source Available](https://img.shields.io/badge/license-source--available-orange)](LICENSE.md)
 
-Offline Windows voice controller using Vosk for the always-on wake gate and INT8 Omnilingual ASR for short commands.
+Offline-first Georgian Windows voice controller with authenticated Android and
+mPython Board 3.0 companions. Gela uses Vosk for its always-on wake gate and
+INT8 Omnilingual ASR for short commands.
 
 Gela is designed and developed by [Softcurse Systems](https://softcurse-website.pages.dev/).
 
 GELA is intentionally a short-command computer controller, not a conversational
 assistant. Speech recognition and normal computer control remain local.
+
+## Current capabilities
+
+- Georgian wake-word and one-sentence voice commands on Windows
+- Allowlisted application, game, window, media, and system control
+- Automatic application/playlist discovery with Georgian and English aliases
+- Android voice and text commands over local Wi-Fi or private Tailscale HTTPS
+- Biometrically authorized, view-only PC screen streaming to Android
+- Remembered PC pairing, automatic LAN rediscovery, and encrypted remote access
+- mPython Board 3.0 animated face, Wi-Fi push-to-talk, mute control, and ambient moods
+- Encrypted recovery backups, diagnostics, signed-release support, and safe upgrades
 
 ## Project documentation
 
@@ -24,14 +37,15 @@ assistant. Speech recognition and normal computer control remain local.
 - [Architecture](docs/ARCHITECTURE.md)
 - [Testing](docs/TESTING.md)
 - [Roadmap](ROADMAP.md)
-- [micro:bit expansion plan](docs/MICROBIT_ROADMAP.md)
+- [mPython Board 3.0 terminal](mcu/mpython_board_3_face/README.md)
+- [Android companion repository](https://github.com/Beardicuss/GELA_Mobile)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-## Phase 1 setup
+## Development setup
 
 ```powershell
 .\scripts\setup_dev.ps1
@@ -132,6 +146,20 @@ with the Mobile connection window retained as a PC-side fallback. It expires aut
 through the Tailscale private HTTPS proxy. Authenticated requests arriving over
 the cleartext LAN route are rejected. Frames are bounded and rate-limited, and
 this phase provides no keyboard, touch, or mouse-control endpoint.
+
+## mPython Board 3.0 companion
+
+The optional ESP32-S3-based board connects to Gela over Wi-Fi and supplements
+the PC microphone. Press and release A, then speak during the safe four-second
+capture; A+B toggles Windows mute. The board displays Gela's listening,
+thinking, success, error, and talking states and returns to an ambient face
+driven by recent Windows activity: attentive, calm, sleepy, then sleeping.
+
+The board loads one optimized 320×172 PNG at a time and uses no audio or render
+threads. Its authenticated token is separate from mobile credentials, and its
+API cannot access files, clipboard data, screen frames, or arbitrary commands.
+Firmware, verified board-ready frames, provisioning, deployment, and recovery
+instructions are in the [board guide](mcu/mpython_board_3_face/README.md).
 
 Personal configuration and runtime files are stored under `%LOCALAPPDATA%\Gela`, separate from application binaries. First launch copies existing/default settings, aliases, and catalog without overwriting files already present. The tray menu can open this data folder directly.
 

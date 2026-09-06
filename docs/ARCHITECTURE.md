@@ -75,5 +75,6 @@ and robot transports without duplicating command execution logic.
 - `audio/voice/`: recorded Georgian responses and their manifest.
 - `scripts/`: development, model, voice, build, signing, and release tooling.
 - `installer/`: Inno Setup package definition.
-- `docs/`: architecture and hardware plans.
-- `microbit/`: reserved for future board source and generated-output placeholders.
+- `docs/`: architecture, security, testing, and release documentation.
+- `mcu/mpython_board_3_face/`: board firmware, tracked display assets,
+  provisioning/deployment tools, and hardware notes.

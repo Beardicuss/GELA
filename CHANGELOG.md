@@ -67,7 +67,6 @@ practical.
 
 ### Planned
 
-- micro:bit V2 USB controller and status prototype.
 - Transport-neutral peripheral protocol for future wireless and robot devices.
 
 ## 1.5.2 - 2026-08-10
