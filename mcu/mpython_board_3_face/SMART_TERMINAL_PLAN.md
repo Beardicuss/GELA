@@ -105,30 +105,23 @@ show only the action result. Debounce touch input and rate-limit volume changes.
 Acceptance: accidental touches do not repeat, media controls work while Gela is
 listening, and the face returns after the temporary now-playing card.
 
-## Phase 5 — PC health monitor (core card implemented)
+## Phase 5 — PC health monitor (removed after physical stability testing)
 
 1. Add a small cached PC metrics service: CPU, memory, disk-free percentage,
    network state, and laptop battery where available.
 2. GPU load/temperature is optional: use vendor-supported data when installed and
    display `N/A` otherwise—never fail the entire monitor.
-3. Hold touch N for 0.7 seconds to open a compact 10-second health card, then
-   return automatically to the current face state.
+3. A compact temporary health card was evaluated on touch N.
 4. Add threshold notifications for low disk, high temperature, and low battery,
    with hysteresis/cooldowns to prevent repeated alerts.
 
 Acceptance: polling is lightweight, unavailable sensors are handled honestly, and
 values do not block voice or animation traffic.
 
-Implementation checkpoint: dependency-free Windows sampling provides cached CPU,
-RAM, system-disk free space, network, battery, and AC state through the existing
-authenticated status request. GPU data and threshold notifications remain optional
-follow-up work.
-
-The N dashboard now has two deliberate gestures: tap N for current Gela activity
-and the latest board/mobile command result; hold N for health. Board-originated
-commands show immediate six-second feedback, while mobile results are retained for
-the next activity-card view. Georgian transcripts are transliterated for the
-board's Latin-only embedded font.
+Physical testing found repeatable native board resets after adding the N health and
+activity dashboards. Both features and their status payloads were removed, and the
+firmware was restored to the compact, previously stable single-threaded command
+path. Reliability takes precedence over optional board telemetry.
 
 ## Phase 6 — Notification display
 
@@ -159,21 +152,21 @@ and critical connection/privacy alerts outrank informational cards.
 Acceptance: offline mode never loses configuration, WOL packets remain local, and
 the display distinguishes `WAKE SENT`, `WAKING`, and `STILL OFFLINE`.
 
-## Phase 8 — Presence automation (conservative rollout)
+## Phase 8 — Ambient Gela personality
 
-The board has light and motion sensors, not a true human-presence sensor. Therefore:
+Presence automation was rejected because the built-in light/motion sensors cannot
+reliably prove that a person is present. The safer ambient feature changes character,
+not PC behavior:
 
-1. Begin in observe-only mode and log no raw sensor history—only bounded local
-   confidence state.
-2. Fuse recent board movement, light changes, PC input-idle time, time of day, and
-   optional phone presence. Any single sensor is insufficient.
-3. First automation: pause listening after a configurable confident absence and
-   resume on return.
-4. PC locking remains opt-in and requires a warning/grace period with an easy cancel.
-5. Recommend an inexpensive PIR/mmWave sensor later if reliable occupancy is wanted.
+1. Windows input-idle time is reduced to one coarse mood: attentive, calm, sleepy,
+   or away.
+2. The board reuses its existing idle frames with different pace and blink patterns.
+3. Listening, thinking, success, and error states always override the ambient mood.
+4. No occupancy claim, automatic lock/pause, sensor logging, extra controls, audio
+   thread, or heavy rendering is added.
 
-Acceptance: false absence never immediately locks the PC; privacy and manual pause
-always override presence automation.
+Acceptance: ambient animation cannot execute actions and failure to read Windows
+idle time leaves the last safe mood in place without affecting Gela.
 
 ## Delivery order
 
@@ -186,7 +179,7 @@ always override presence automation.
 7. Health monitor
 8. Gela-owned notifications
 9. Offline/WOL controls
-10. Presence observe-only mode, then opt-in automation
+10. Lightweight ambient personality
 11. Optional Windows/app notifications and richer spoken answers
 
 Each phase ends with unit tests, physical-board tests, Wi-Fi-only testing from a

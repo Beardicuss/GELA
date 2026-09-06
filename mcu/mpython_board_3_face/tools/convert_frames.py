@@ -74,6 +74,25 @@ def rgb565_bytes(image: Image.Image) -> bytes:
     return bytes(output)
 
 
+def save_board_png(image: Image.Image, destination: Path, colors: int = 256) -> None:
+    """Write a compact RGB PNG compatible with the board's LVGL decoder."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    board_frame = image.quantize(
+        colors=colors,
+        method=Image.Quantize.MEDIANCUT,
+        dither=Image.Dither.FLOYDSTEINBERG,
+    ).convert("RGB")
+    board_frame.save(destination, optimize=True)
+
+
+def convert_single(source: Path, destination: Path, colors: int = 256) -> None:
+    """Convert one reference-aligned transparent artwork into a board frame."""
+    with Image.open(source) as original:
+        # Gela's source artwork shares this 1024px reference composition.
+        frame = fit_frame(original.convert("RGBA"), (20, 70, 1001, 914))
+    save_board_png(frame, destination, colors)
+
+
 def convert(source: Path, output: Path) -> dict[str, object]:
     missing = [name for name in ASSET_MAP if not (source / name).is_file()]
     if missing:
@@ -98,12 +117,7 @@ def convert(source: Path, output: Path) -> dict[str, object]:
         frame.save(preview / png_name, optimize=True)
         # This firmware's LVGL PNG decoder crashes on indexed PNGs. Quantize
         # the palette for compression, then store it as ordinary RGB.
-        board_frame = frame.quantize(
-            colors=256,
-            method=Image.Quantize.MEDIANCUT,
-            dither=Image.Dither.FLOYDSTEINBERG,
-        ).convert("RGB")
-        board_frame.save(board_frames / png_name, optimize=True)
+        save_board_png(frame, board_frames / png_name)
         files.append(
             {
                 "source": source_name,
@@ -132,7 +146,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--single", action="store_true")
+    parser.add_argument("--colors", type=int, choices=(32, 64, 128, 256), default=256)
     args = parser.parse_args()
+    if args.single:
+        convert_single(args.source, args.output, args.colors)
+        print(f"Converted {args.source} to {args.output}")
+        return
     manifest = convert(args.source, args.output)
     print(f"Converted {len(manifest['files'])} frames to {args.output}")
 

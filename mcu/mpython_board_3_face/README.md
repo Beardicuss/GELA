@@ -5,27 +5,14 @@ Board 3.0. It supplements the normal PC microphone; it does not replace it.
 
 The working controls are:
 
-- **Hold A:** speak for 0.3–5 seconds; release to send after a short tail that
-  protects the final syllable
-- **B:** cancel Gela's current listening/response activity
+- **Press and release A:** then speak during the four-second capture
 - **A+B:** toggle Windows mute
-- **Tap touch N:** show Gela's current state and the latest board/mobile command
-- **Hold touch N:** show the PC health card for 10 seconds
 - **Status strip:** Wi-Fi strength, PC/Gela state, and recent mobile activity
-
-The health card shows CPU, RAM, system-disk free space, network state, and laptop
-battery/charging state when available. Metrics are sampled and cached on the PC;
-the board only renders the compact result, so monitoring does not compete with
-recording or animation.
-
-After a board command, a six-second feedback card immediately shows what Gela
-heard, the matched target, and whether it completed, failed, or was not found.
-Mobile command results enter the same history and appear with `SOURCE MOBILE`
-the next time N is tapped. Georgian speech is transliterated because the board's
-small built-in LVGL font does not contain Georgian glyphs.
+- **Ambient personality:** while Gela is idle, the face becomes attentive, calm,
+  sleepy, or away according to recent PC input; command states always take priority
 
 USB remains supported for face-state control and maintenance. Wi-Fi uses a
-separate random board token and can access only status, health metrics, command
+separate random board token and can access only status, command
 audio, cancel, and mute—not mobile files, clipboard, screen, or device-management
 APIs. Board-speaker responses are intentionally disabled: repeated playback tests
 proved unstable in the vendor firmware, while PC response audio remains reliable.
@@ -65,6 +52,10 @@ alpha onto black. It writes 320×172 RGB565 diagnostic files, lossless previews,
 and 256-color board PNGs. The compact board PNGs fit the firmware's limited
 filesystem and are deployed through its supported LVGL decoder.
 
+The verified active PNG set is checked into `assets/board_frames`, so a fresh
+repository checkout can restore the working board without the ignored local
+`build` directory. Copy newly approved conversions there before a checkpoint.
+
 ## Verify and deploy
 
 1. Connect the board with a USB data cable and note its COM port.
@@ -81,6 +72,21 @@ standalone `main.py`. Resetting the board starts the natural idle animation.
 Listening, thinking, talking, success, and error remain available as explicit
 runtime states for later Gela integration; they are not played in an automatic
 sequence.
+
+The attentive idle rhythm is center → left → center → right. Its irregular,
+180 ms blink is allowed only from the centered frame, preventing visible pose
+jumps. Calm reuses that blink only from its centered `calm_0` pose. The older
+downward idle frame is intentionally not installed.
+
+The ambient layer is intentionally lightweight. Windows reports only a coarse
+mood string (`ATTENTIVE`, `CALM`, `SLEEPY`, or `AWAY`); the board changes the
+existing idle animation's pace and blink pattern. Calm combines one dedicated
+middle frame with the existing left/right idle frames; sleepy and away each use
+one dedicated optimized frame. No sensor history, application
+content, extra screen, audio task, or board thread is involved.
+
+Ambient timing is attentive for the first minute without PC input, calm from one
+to five minutes, sleepy from five to seven minutes, and away/sleeping afterward.
 
 The runtime reads one compressed PNG at a time through the firmware's supported
 LVGL wrapper and starts a fresh draw layer after every swap.

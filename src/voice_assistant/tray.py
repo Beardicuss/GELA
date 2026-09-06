@@ -14,13 +14,12 @@ import pystray
 from . import __version__
 from .catalog import CATALOG_PATH
 from .catalog_monitor import CatalogMonitor
-from .command_activity import CommandActivityStore
 from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, USER_DATA_ROOT, load_settings
 from .mobile_bridge import MOBILE_TRANSFER_ROOT, MobileBridgeService, ensure_transfer_directories
 from .mcu_face import McuFaceBridge
 from .mcu_terminal import McuTerminalService
-from .pc_health import PcHealthMonitor
 from .actions import SystemAction, execute_action
+from .ambient import AmbientMoodMonitor
 from .responses import VoiceResponses
 from .single_instance import SingleInstanceLock
 from .startup import install_startup, startup_shortcut, uninstall_startup
@@ -80,8 +79,6 @@ class TrayApplication:
     def __init__(self) -> None:
         self.controls = WorkerControls(self._status_changed)
         self.mcu_face = McuFaceBridge()
-        self.pc_health = PcHealthMonitor()
-        self.command_activity = CommandActivityStore()
         self.controls.add_status_callback(self.mcu_face.on_status)
         self.controls.add_response_callback(
             lambda event, active: self.mcu_face.on_response(event, active, self.controls.status)
@@ -109,14 +106,13 @@ class TrayApplication:
         self.mobile_window_process: subprocess.Popen | None = None
         self.mobile_bridge = MobileBridgeService(
             audio_recognizer=self.controls.transcribe_remote_audio,
-            command_observer=lambda result: self.command_activity.record("MOBILE", result),
         )
+        self.ambient_mood = AmbientMoodMonitor()
         self.mcu_terminal = McuTerminalService(
             audio_recognizer=self.controls.transcribe_remote_audio,
             status_supplier=self._mcu_status,
             cancel=self._cancel_from_mcu,
             toggle_mute=lambda: execute_action(SystemAction("Toggle Mute", "volume_mute")),
-            command_observer=lambda result: self.command_activity.record("BOARD", result),
         )
         self.icon = pystray.Icon("GelaVoiceAssistant", create_icon_image(), "Gela Voice Assistant")
         self.icon.menu = self._build_menu()
@@ -229,8 +225,7 @@ class TrayApplication:
             "faceState": self.mcu_face.desired_state,
             "paused": self.controls.pause_event.is_set(),
             "mobileConnected": self.mobile_bridge.devices.any_recently_seen(),
-            "health": self.pc_health.snapshot(),
-            "activity": self.command_activity.snapshot(self.controls.status),
+            "ambientMood": self.ambient_mood.snapshot(),
         }
 
     def _cancel_from_mcu(self) -> None:

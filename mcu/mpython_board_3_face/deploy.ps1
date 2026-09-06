@@ -4,13 +4,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$frames = Join-Path $root "build\board_frames"
+$frames = Join-Path $root "assets\board_frames"
 $firmware = Join-Path $root "firmware"
 $projectRoot = Split-Path -Parent (Split-Path -Parent $root)
 $mpremote = Join-Path $projectRoot ".venv\Scripts\mpremote.exe"
 
 if (-not (Test-Path -LiteralPath (Join-Path $frames "idle_0.png"))) {
-    throw "Converted frames are missing. Run tools\convert_frames.py first."
+    throw "Tracked board frames are missing from assets\board_frames."
 }
 if (-not (Test-Path -LiteralPath $mpremote)) {
     throw "mpremote is not installed. Install it with: python -m pip install mpremote"

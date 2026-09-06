@@ -13,18 +13,15 @@ practical.
   failure states, and exponential reconnect/discovery backoff.
 - Hardened the board's USB protocol tester against the ESP32-S3 reset that can
   occur when Windows opens its serial port.
-- Replaced fixed four-second board recording with hold-A/release-to-send smart
-  push-to-talk, a 300 ms minimum, 250 ms release tail, and reliable five-second
-  hardware cap. Upload and recognition run outside the animation loop so the
-  face stays responsive while Gela processes the command.
-- Added an MCU PC-health card opened by holding touch N. It shows cached CPU,
-  RAM, system-disk free space, network, and battery/charging state for 10 seconds
-  before returning to the animated face.
-- Added smart board/mobile command feedback and an N-tap activity card showing
-  the current Gela state, recognized command, matched target, result, and source.
-  Georgian transcripts are transliterated for the board's embedded Latin font.
+- Removed the optional N-button health/activity dashboards and automatic result
+  cards after physical stability testing. The board interface is intentionally
+  limited to press/release A followed by a safe four-second command capture and
+  A+B for Windows mute; B alone and all touch controls are unused.
 - Removed the experimental board-speaker response path after physical testing
   exposed repeatable vendor-firmware crashes. PC response playback remains active.
+- Added a lightweight ambient personality for the board face. Recent Windows input
+  selects attentive, calm, sleepy, or away idle pacing without adding board threads,
+  controls, sensor tracking, or automated PC actions.
 
 ### Changed
 

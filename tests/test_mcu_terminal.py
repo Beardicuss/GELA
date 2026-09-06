@@ -29,9 +29,8 @@ def oversized_audio_request(server_port):
     finally:connection.close()
 
 def test_mcu_api_is_authenticated_and_allowlisted():
-    actions=[]; connections=[]; commands=[]
-    health={"cpuPercent":25,"memoryPercent":60,"diskFreePercent":40,"batteryPercent":80,"charging":True,"network":"online"}
-    handler=create_mcu_handler("secret-token",audio_recognizer=lambda audio,rate,channels:Recognized(),executor=lambda text,language:RemoteCommandResult("executed",text,"Steam","Steam",None),status_supplier=lambda:{"gelaStatus":"sleeping","faceState":"IDLE","health":health},cancel=lambda:actions.append("cancel"),toggle_mute=lambda:actions.append("toggle-mute"),command_observer=commands.append,connection_observer=connections.append)
+    actions=[]; connections=[]
+    handler=create_mcu_handler("secret-token",audio_recognizer=lambda audio,rate,channels:Recognized(),executor=lambda text,language:RemoteCommandResult("executed",text,"Steam","Steam",None),status_supplier=lambda:{"gelaStatus":"sleeping","faceState":"IDLE"},cancel=lambda:actions.append("cancel"),toggle_mute=lambda:actions.append("toggle-mute"),connection_observer=connections.append)
     server=ThreadingHTTPServer(("127.0.0.1",0),handler); thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start(); base=f"http://127.0.0.1:{server.server_port}"
     try:
         assert request(base,"/v1/mcu/status",token="wrong")[0]==401
@@ -40,10 +39,8 @@ def test_mcu_api_is_authenticated_and_allowlisted():
         assert status["protocolVersion"]==MCU_PROTOCOL_VERSION
         assert status["minimumProtocolVersion"]==1
         assert status["capabilities"]==list(MCU_CAPABILITIES)
-        assert status["health"]==health
         command=request(base,"/v1/mcu/audio",body=b"\0"*2000,content_type="audio/L16")[1]
         assert command["matchedCommand"]=="Steam"
-        assert commands and commands[-1].matched_command=="Steam"
         assert request(base,"/v1/mcu/audio",body=b"\0"*170_000,content_type="audio/L16")[0]==200
         assert oversized_audio_request(server.server_port)==413
         for action in ("cancel","toggle-mute"):assert request(base,"/v1/mcu/action",body=json.dumps({"action":action}).encode())[0]==200

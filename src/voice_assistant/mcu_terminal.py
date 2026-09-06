@@ -26,7 +26,6 @@ MCU_CAPABILITIES = (
     "cancel-v1",
     "toggle-mute-v1",
     "status-v2",
-    "pc-health-v1",
 )
 MCU_EVENT_TYPES = frozenset({"boot", "wifi-connected", "pc-reconnected", "command-started", "command-finished", "action"})
 def load_mcu_token(path: Path = MCU_TOKEN_PATH) -> str:
@@ -50,7 +49,6 @@ def create_mcu_handler(
     status_supplier: Callable[[], dict[str, object]],
     cancel: Callable[[], None],
     toggle_mute: Callable[[], None],
-    command_observer: Callable[[RemoteCommandResult], None] = lambda _result: None,
     connection_observer: Callable[[str], None] = lambda _address: None,
 ) -> type[BaseHTTPRequestHandler]:
     class McuHandler(BaseHTTPRequestHandler):
@@ -126,7 +124,6 @@ def create_mcu_handler(
                         float(getattr(recognized, "confidence", 0.0)),
                     )
                     result = executor(transcript, "ka")
-                    command_observer(result)
                 except TimeoutError as exc:
                     self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"message": str(exc)})
                     return
