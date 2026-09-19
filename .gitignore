@@ -17,6 +17,7 @@ htmlcov/
 build/
 dist/
 release/
+output/
 *.spec.bak
 *.exe
 *.msi

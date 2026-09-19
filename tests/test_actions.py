@@ -47,6 +47,9 @@ def test_static_georgian_actions_are_routed() -> None:
     assert phrases["გაადიდე"].value == "maximize"
     assert phrases["დააპატარავე"].value == "restore"
     assert phrases["ჩართე ფრენის რეჟიმი"].value == "on"
+    assert phrases["გახსენი ფურცელი"].action_id == "notes_open"
+    assert phrases["წერის რეჟიმი"].action_id == "notes_start"
+    assert phrases["შეწყვიტე წერა"].action_id == "notes_stop"
 
 
 def test_allowlisted_close_phrases_use_catalog_aliases(monkeypatch, tmp_path) -> None:

@@ -18,12 +18,14 @@ from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, USER_DATA_ROOT, load_sett
 from .mobile_bridge import MOBILE_TRANSFER_ROOT, MobileBridgeService, ensure_transfer_directories
 from .mcu_face import McuFaceBridge
 from .mcu_terminal import McuTerminalService
+from .home_window import find_home_bundle
 from .actions import SystemAction, execute_action
 from .ambient import AmbientMoodMonitor
 from .responses import VoiceResponses
 from .single_instance import SingleInstanceLock
 from .startup import install_startup, startup_shortcut, uninstall_startup
 from .storage import atomic_write_text
+from .supervisor import mark_intentional_exit, run_supervisor
 from .worker import LOG_PATH, WorkerControls, run_worker
 
 
@@ -43,6 +45,8 @@ STATUS_LABELS = {
     "calibrating": "გამაღვიძებელი სიტყვის კალიბრაცია",
     "recognition_testing": "ამოცნობის ტესტირება",
     "recognizing_mobile": "მობილურის ხმის ამოცნობა",
+    "dictating": "Gela Notes — გისმენთ",
+    "transcribing_note": "Gela Notes — ვწერ",
     "error": "მიკროფონის ან პროცესის შეცდომა",
     "stopped": "გაჩერებულია",
 }
@@ -131,6 +135,7 @@ class TrayApplication:
             pystray.MenuItem(
                 "აპლიკაციები",
                 pystray.Menu(
+                    pystray.MenuItem("Gela Home (preview)", self._open_home_window, enabled=lambda item: find_home_bundle() is not None),
                     pystray.MenuItem("კატალოგის განახლება", self._refresh_catalog),
                     pystray.MenuItem(
                         "ავტომატური განახლება (1 საათი)",
@@ -138,6 +143,7 @@ class TrayApplication:
                         checked=lambda item: self.catalog_monitor.enabled,
                     ),
                     pystray.MenuItem("ხმოვანი სახელების მართვა", self._open_alias_manager),
+                    pystray.MenuItem("Gela Notes", self._open_notes_window),
                     pystray.MenuItem("მართვის პროფილები", self._open_profile_manager),
                     pystray.MenuItem("რუტინების მართვა", self._open_routine_manager),
                     pystray.MenuItem("ხმოვანი მზადყოფნის ნახვა", self._open_catalog_window),
@@ -234,6 +240,8 @@ class TrayApplication:
 
     def _setup(self, icon: pystray.Icon) -> None:
         icon.visible = True
+        if os.environ.pop("GELA_RECOVERED", None) == "1":
+            icon.notify("Gela ავტომატურად აღდგა მოულოდნელი გაჩერების შემდეგ.", "Gela")
         self.mcu_face.start()
         self.worker_thread = threading.Thread(
             target=run_worker,
@@ -255,6 +263,8 @@ class TrayApplication:
             )
         if not self.mcu_terminal.start():
             icon.notify(f"MCU Wi-Fi bridge could not start: {self.mcu_terminal.error}", "Gela")
+        if os.environ.pop("GELA_AUTO_OPEN_HOME", None) == "1":
+            self._open_home_window(icon, None)
 
     def _toggle_pause(self, icon, item) -> None:
         VoiceResponses.stop()
@@ -329,11 +339,30 @@ class TrayApplication:
                 self.controls.pause_event.clear()
 
     @staticmethod
+    def _open_home_window(icon, item) -> None:
+        if find_home_bundle() is None:
+            icon.notify("Gela Home bundle is not available on this PC.", "Gela")
+            return
+        command = (
+            [sys.executable, "--home-window"]
+            if getattr(sys, "frozen", False)
+            else [sys.executable, "-m", "voice_assistant.tray", "--home-window"]
+        )
+        subprocess.Popen(command, close_fds=True)
+
+    @staticmethod
     def _open_alias_manager(icon, item) -> None:
         if getattr(sys, "frozen", False):
             subprocess.Popen([sys.executable, "--alias-manager"], close_fds=True)
         else:
             subprocess.Popen([sys.executable, "-m", "voice_assistant.alias_manager"], close_fds=True)
+
+    @staticmethod
+    def _open_notes_window(icon, item) -> None:
+        from .notes import launch_notes_window
+
+        launch_notes_window()
+
 
     def _open_profile_manager(self, icon, item) -> None:
         if self.profile_manager_process is not None and self.profile_manager_process.poll() is None:
@@ -532,6 +561,7 @@ class TrayApplication:
         icon.update_menu()
 
     def _exit(self, icon, item) -> None:
+        mark_intentional_exit()
         VoiceResponses.stop()
         self.controls.stop_event.set()
         self.mcu_terminal.stop()
@@ -552,6 +582,17 @@ class TrayApplication:
 
 
 def main() -> int:
+    if "--home-window" in sys.argv:
+        from .home_window import main as home_window_main
+
+        return home_window_main()
+    if "--home-catalog-launch" in sys.argv:
+        from .home_catalog_launch import main as home_catalog_main
+
+        index = sys.argv.index("--home-catalog-launch")
+        return home_catalog_main(sys.argv[index + 1 : index + 4])
+    if "--supervise" in sys.argv:
+        return run_supervisor()
     if "--sleep-helper" in sys.argv:
         from .sleep_helper import main as sleep_helper_main
 
@@ -594,6 +635,10 @@ def main() -> int:
         from .alias_manager import main as alias_manager_main
 
         return alias_manager_main()
+    if "--notes-window" in sys.argv:
+        from .notes_window import main as notes_window_main
+
+        return notes_window_main()
     if "--diagnostics" in sys.argv:
         from .diagnostics import main as diagnostics_main
 

@@ -15,6 +15,8 @@ ALLOWED_STATES = frozenset({"IDLE", "LISTEN", "THINK", "ERROR", "SUCCESS", "TALK
 
 STATUS_STATES = {
     "listening_command": "LISTEN",
+    "dictating": "LISTEN",
+    "transcribing_note": "THINK",
     "listening_question": "LISTEN",
     "listening_online_query": "LISTEN",
     "executing": "THINK",

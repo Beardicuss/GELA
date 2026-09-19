@@ -50,6 +50,7 @@ MUTABLE_CONFIG_FILES = (
     "vocabulary_audit.json",
     "routines.json",
     "app_profiles.json",
+    "dictation_corrections.json",
 )
 
 

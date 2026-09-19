@@ -10,6 +10,9 @@
     "already_on": "audio/voice/processed/vo_already_on_001.wav",
     "already_off": "audio/voice/processed/vo_already_off_001.wav",
     "microphone_error": "audio/voice/processed/vo_microphone_error_001.wav",
-    "startup_ready": "audio/voice/processed/vo_startup_ready_001.wav"
+    "startup_ready": "audio/voice/processed/vo_startup_ready_001.wav",
+    "notes_ready": "audio/voice/processed/vo_notes_ready_001.wav",
+    "notes_writing": "audio/voice/processed/vo_notes_writing_001.wav",
+    "notes_stopped": "audio/voice/processed/vo_notes_stopped_001.wav"
   }
 }

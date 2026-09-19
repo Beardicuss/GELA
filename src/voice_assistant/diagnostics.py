@@ -29,6 +29,8 @@ STATUS_VALUES = {
     "starting": "ირთვება",
     "sleeping": "ძილის რეჟიმი — ველოდები „გელას“",
     "listening_command": "ვისმენ ბრძანებას",
+    "dictating": "Gela Notes — გისმენთ",
+    "transcribing_note": "Gela Notes — ვწერ",
     "listening_question": "ვისმენ კითხვას",
     "answering_question": "ვამზადებ ლოკალურ პასუხს",
     "listening_online_query": "ვისმენ ონლაინ ძიების მოთხოვნას",

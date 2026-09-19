@@ -20,6 +20,9 @@ def response_event_for_detail(detail: str | None) -> str:
         "state already_stopped": "already_stopped",
         "state already_on": "already_on",
         "state already_off": "already_off",
+        "notes ready": "notes_ready",
+        "notes writing": "notes_writing",
+        "notes stopped": "notes_stopped",
     }
     return next(
         (event for prefix, event in state_events.items() if detail.startswith(prefix)),

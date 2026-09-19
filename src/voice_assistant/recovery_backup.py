@@ -31,6 +31,7 @@ BACKUP_PATHS = (
     "config/app_profiles.json",
     "config/routines.json",
     "config/learned_process_targets.json",
+    "config/dictation_corrections.json",
     "mobile/paired_devices.json",
     "mobile/bridge_id.txt",
     "mcu/board_token.txt",

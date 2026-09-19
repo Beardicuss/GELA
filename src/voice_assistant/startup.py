@@ -25,7 +25,7 @@ def install_startup() -> Path:
     shortcut = startup_shortcut()
     frozen = getattr(sys, "frozen", False)
     target = Path(sys.executable) if frozen else Path(sys.executable).with_name("pythonw.exe")
-    arguments = "" if frozen else "-m voice_assistant.tray"
+    arguments = "--supervise" if frozen else "-m voice_assistant.tray --supervise"
     working_directory = target.parent if frozen else PROJECT_ROOT
     shortcut_value = _powershell_single_quoted(shortcut)
     target_value = _powershell_single_quoted(target)

@@ -201,6 +201,21 @@ Optional local question answering is disabled by default and isolated from norma
 
 Optional online modules for current weather and Wikipedia lookup are independently disabled by default. They can be enabled under **Online services** in the tray. Weather uses fixed Open-Meteo HTTPS APIs and configured coordinates; Wikipedia lookup uses only Georgian or English Wikimedia HTTPS endpoints. No arbitrary service URL, application data, command catalog, or passive microphone audio is uploaded. See `COMMANDS.md` for phrases and configuration.
 
+## Gela Home preview
+
+The red/copper Gela Home interface adapts the separate Apex visual experiment
+without changing Apex. It currently runs as an opt-in, local-only Edge app window;
+it does not replace Explorer or start with Windows. Build and stage the standalone
+UI on D: with `npm run build` in `home_ui`, then
+`home_ui\scripts\stage_preview.ps1` from the repository root. See
+[home_ui/README.md](home_ui/README.md) for launching and recovery instructions.
+
+The staged UI plus Node runtime occupies about 160 MB on D: (browser-profile
+cache is separate). Source code now contains a compact tray-menu entry and
+installed-executable action routing, but the current installed Gela build has
+not yet been upgraded to expose them. Gela Home is not included in the normal
+installer or Windows startup yet.
+
 ## Windows release
 
 ### Encrypted recovery backups

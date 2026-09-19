@@ -33,10 +33,11 @@ from .recognizer import (
     split_wake_command,
 )
 from .responses import VoiceResponses, response_event_for_detail
-from .runtime_status import RuntimeStatusStore
+from .runtime_status import RuntimeStatusStore, WorkerHeartbeat
 from .routines import Routine, execute_routine, routine_phrases
 from .vad import AdaptiveVoiceActivityDetector, UtteranceBoundary
 from .command_recognizer import OmnilingualCommandRecognizer
+from .dictation_corrections import CorrectionCache
 from .interaction import (
     CANCEL_PHRASES,
     CommandCandidate,
@@ -52,12 +53,21 @@ from .local_qa import (
     save_answer,
 )
 from .online_services import OnlineServiceAction, OnlineServices, online_phrases
+from .notes import (
+    append_transcript,
+    detected_language,
+    format_dictation_text,
+    read_state as read_notes_state,
+    request_dictation_stop,
+    save_final_note,
+    split_stop_phrase,
+    write_state as write_notes_state,
+)
 
 
 LOG_PATH = USER_LOG_ROOT / "assistant.log"
 ENGLISH_ALIASES_PATH = USER_CONFIG_ROOT / "english_aliases.json"
 MUTEX_NAME = "Local\\SimpleVoiceAssistantWorker"
-EMBEDDED_WAKE_MIN_CONFIDENCE = 0.75
 
 
 class RemoteAudioRecognition:
@@ -68,23 +78,6 @@ class RemoteAudioRecognition:
         self.completed = threading.Event()
         self.result: RecognitionResult | None = None
         self.error: Exception | None = None
-
-
-def exact_embedded_wake(
-    result: RecognitionResult,
-    wake_phrases: list[str],
-    minimum_confidence: float,
-) -> tuple[str, float] | None:
-    """Accept an exact wake token when Vosk inserts unrelated words before it."""
-    match = max(
-        (
-            (phrase, matched_phrase_confidence(result, phrase))
-            for phrase in wake_phrases
-        ),
-        key=lambda candidate: candidate[1],
-        default=("", 0.0),
-    )
-    return match if match[0] and match[1] >= minimum_confidence else None
 
 
 class WorkerControls:
@@ -249,6 +242,7 @@ class BackgroundAssistant:
         self.phrases = expand_intent_phrases(self.phrases, settings.background.language)
         self.english_phrases = expand_intent_phrases(self.english_phrases, "en")
         self.responses = VoiceResponses(event_callback=response_callback)
+        self.dictation_corrections = CorrectionCache()
         if self.diagnostics is not None:
             self.diagnostics.update(
                 models="Vosk wake models and Omnilingual command model loaded",
@@ -514,6 +508,14 @@ class BackgroundAssistant:
         command_attempt = 1
         pending_online_action: OnlineServiceAction | None = None
         cooldown_until = 0.0
+        dictation_audio = bytearray()
+        dictation_boundary = UtteranceBoundary()
+        dictation_vad = AdaptiveVoiceActivityDetector(
+            min_rms=self.settings.background.vad_min_rms,
+            noise_ratio=self.settings.background.vad_noise_ratio,
+            hangover_blocks=self.settings.background.vad_hangover_blocks,
+        )
+        dictation_was_active = False
         logging.info(
             "Listening on device %s (%s), language=%s, wake=%s, catalog=%d",
             device_index,
@@ -586,6 +588,33 @@ class BackgroundAssistant:
                 audio = bytes(data)
                 self._process_remote_audio(controls)
 
+                notes_active = bool(read_notes_state().get("active", False))
+                if notes_active and state != "dictation":
+                    state = "dictation"
+                    dictation_audio.clear()
+                    dictation_boundary.reset()
+                    dictation_vad.reset()
+                    dictation_was_active = True
+                    controls.set_status("dictating")
+                elif not notes_active and state == "dictation":
+                    dictation_audio.clear()
+                    dictation_boundary.reset()
+                    dictation_vad.reset()
+                    if dictation_was_active:
+                        try:
+                            destination = save_final_note()
+                            logging.info("Gela Notes saved to %s", destination)
+                        except Exception:
+                            logging.exception("Could not save Gela Notes")
+                        stream.stop()
+                        self.responses.play("notes_stopped", winsound.MB_OK)
+                        stream.start()
+                    dictation_was_active = False
+                    state = "cooldown"
+                    cooldown_until = now + 0.4
+                    controls.set_status("cooldown")
+                    continue
+
                 if controls.cancel_event.is_set():
                     controls.cancel_event.clear()
                     state = "cooldown"
@@ -620,6 +649,42 @@ class BackgroundAssistant:
                     continue
                 if controls.status == "paused":
                     controls.set_status("sleeping")
+
+                if state == "dictation":
+                    is_voice, _rms = dictation_vad.process(audio)
+                    boundary = dictation_boundary.observe(is_voice)
+                    if is_voice or dictation_boundary.active:
+                        dictation_audio.extend(audio)
+                    maximum_bytes = self.settings.audio.sample_rate * 2 * 20
+                    forced = len(dictation_audio) >= maximum_bytes
+                    if boundary != "finalize" and not forced:
+                        continue
+                    utterance_audio = bytes(dictation_audio)
+                    dictation_audio.clear()
+                    dictation_boundary.reset()
+                    if not utterance_audio:
+                        continue
+                    write_notes_state(active=True, status="writing")
+                    controls.set_status("transcribing_note")
+                    stream.stop()
+                    result = self._command_model_result(utterance_audio)
+                    stream.start()
+                    transcript, stop_requested = split_stop_phrase(result.text)
+                    transcript = self.dictation_corrections.apply(transcript)
+                    transcript = format_dictation_text(transcript)
+                    if transcript:
+                        append_transcript(transcript)
+                        logging.info("Gela Notes appended dictation: %s", transcript)
+                    if stop_requested:
+                        request_dictation_stop()
+                    else:
+                        write_notes_state(
+                            active=True,
+                            status="listening",
+                            language=detected_language(transcript),
+                        )
+                        controls.set_status("dictating")
+                    continue
 
                 if state == "cooldown":
                     if now >= cooldown_until:
@@ -709,37 +774,15 @@ class BackgroundAssistant:
                         else None
                     )
                     wake_split = split_wake_command(result, wake_phrases)
-                    embedded_wake = (
-                        exact_embedded_wake(
-                            result,
-                            wake_phrases,
-                            max(
-                                self.settings.background.wake_confidence,
-                                EMBEDDED_WAKE_MIN_CONFIDENCE,
-                            ),
-                        )
-                        if wake_split is None
-                        else None
-                    )
-                    wake_phrase = (
-                        wake_split[0]
-                        if wake_split
-                        else embedded_wake[0] if embedded_wake else ""
-                    )
-                    confidence = (
-                        wake_split[1]
-                        if wake_split
-                        else embedded_wake[1] if embedded_wake else result.confidence
-                    )
+                    wake_phrase = wake_split[0] if wake_split else ""
+                    confidence = wake_split[1] if wake_split else result.confidence
                     wake_command = wake_split[2] if wake_split else RecognitionResult("", 0.0)
-                    eligible_wake = bool(wake_split or embedded_wake) and (
+                    eligible_wake = bool(wake_split) and (
                         not wake_command.text
                         or self.settings.background.one_sentence_commands
                     )
                     evaluation = (
-                        "embedded exact wake"
-                        if embedded_wake
-                        else "vosk endpoint" if boundary == "complete" else "VAD finalization"
+                        "vosk endpoint" if boundary == "complete" else "VAD finalization"
                     )
                     if eligible_wake and confidence >= self.settings.background.wake_confidence:
                         logging.info(
@@ -1132,7 +1175,9 @@ def run_worker(controls: WorkerControls | None = None) -> int:
     except RuntimeError as exc:
         logging.info(str(exc))
         return 0
+    heartbeat = WorkerHeartbeat()
     try:
+        heartbeat.start()
         first_start = True
         assistant: BackgroundAssistant | None = None
         settings: Settings | None = None
@@ -1192,6 +1237,7 @@ def run_worker(controls: WorkerControls | None = None) -> int:
         diagnostics.update(status="error", microphone_state="worker stopped unexpectedly")
         return 1
     finally:
+        heartbeat.stop()
         ctypes.windll.kernel32.ReleaseMutex(mutex)
         ctypes.windll.kernel32.CloseHandle(mutex)
 

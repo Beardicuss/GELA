@@ -192,6 +192,9 @@ STATIC_ACTIONS = {
         "გააჩერე მუსიკა": SystemAction("Stop media", "media_key", "stop"),
         "შემდეგი სიმღერა": SystemAction("Next track", "media_key", "next"),
         "წინა სიმღერა": SystemAction("Previous track", "media_key", "previous"),
+        "გახსენი ფურცელი": SystemAction("Open Gela Notes", "notes_open"),
+        "წერის რეჟიმი": SystemAction("Start Gela dictation", "notes_start"),
+        "შეწყვიტე წერა": SystemAction("Stop Gela dictation", "notes_stop"),
     },
     "en": {
         "open downloads": SystemAction("Open Downloads", "open_shell", "Downloads"),
@@ -235,6 +238,9 @@ STATIC_ACTIONS = {
         "stop media": SystemAction("Stop media", "media_key", "stop"),
         "next track": SystemAction("Next track", "media_key", "next"),
         "previous track": SystemAction("Previous track", "media_key", "previous"),
+        "open notes": SystemAction("Open Gela Notes", "notes_open"),
+        "start writing": SystemAction("Start Gela dictation", "notes_start"),
+        "stop writing": SystemAction("Stop Gela dictation", "notes_stop"),
     },
 }
 
@@ -765,6 +771,14 @@ def _control_window(action_id: str, value: str) -> None:
 
 
 def execute_action(action: SystemAction) -> str | None:
+    if action.action_id in {"notes_open", "notes_start", "notes_stop"}:
+        from .notes import open_blank_note, request_dictation_start, request_dictation_stop
+
+        if action.action_id == "notes_open":
+            return open_blank_note()
+        if action.action_id == "notes_start":
+            return request_dictation_start()
+        return request_dictation_stop()
     if action.action_id == "open_shell":
         os.startfile(f"shell:{action.value}")  # type: ignore[attr-defined]
         return None

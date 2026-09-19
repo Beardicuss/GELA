@@ -1,8 +1,7 @@
-from voice_assistant.recognizer import decode_result
-from voice_assistant.worker import exact_embedded_wake
+from voice_assistant.recognizer import decode_result, split_wake_command
 
 
-def test_exact_wake_survives_captured_georgian_decoder_noise() -> None:
+def test_wake_word_in_middle_of_dialogue_does_not_activate_gela() -> None:
     result = decode_result(
         '{"text":"დილა გელა გელაშვილი დედამ მომცა","result":['
         '{"word":"დილა","conf":0.97911},'
@@ -12,7 +11,21 @@ def test_exact_wake_survives_captured_georgian_decoder_noise() -> None:
         '{"word":"მომცა","conf":0.257014}]}'
     )
 
-    assert exact_embedded_wake(result, ["გელა"], 0.75) == ("გელა", 0.997568)
+    assert split_wake_command(result, ["გელა"]) is None
+
+
+def test_exact_prefix_still_activates_with_high_confidence() -> None:
+    result = decode_result(
+        '{"text":"გელა გახსენი სტიმი","result":['
+        '{"word":"გელა","conf":0.96},'
+        '{"word":"გახსენი","conf":0.80},'
+        '{"word":"სტიმი","conf":0.79}]}'
+    )
+
+    split = split_wake_command(result, ["გელა"])
+    assert split is not None
+    assert split[1] >= 0.90
+    assert split[2].text == "გახსენი სტიმი"
 
 
 def test_similar_word_does_not_count_as_exact_wake() -> None:
@@ -21,13 +34,4 @@ def test_similar_word_does_not_count_as_exact_wake() -> None:
         '{"word":"გელაშვილი","conf":0.99}]}'
     )
 
-    assert exact_embedded_wake(result, ["გელა"], 0.75) is None
-
-
-def test_low_confidence_embedded_wake_is_rejected() -> None:
-    result = decode_result(
-        '{"text":"დილა გელა","result":['
-        '{"word":"დილა","conf":0.91},{"word":"გელა","conf":0.64}]}'
-    )
-
-    assert exact_embedded_wake(result, ["გელა"], 0.75) is None
+    assert split_wake_command(result, ["გელა"]) is None

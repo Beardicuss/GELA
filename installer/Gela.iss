@@ -44,7 +44,7 @@ Source: "..\dist\Gela\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Name: "{group}\Gela Voice Assistant"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 Name: "{group}\Uninstall Gela"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Gela Voice Assistant"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
-Name: "{userstartup}\Simple Voice Assistant"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startup
+Name: "{userstartup}\Simple Voice Assistant"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--supervise"; WorkingDir: "{app}"; Tasks: startup
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Start Gela"; Flags: nowait postinstall skipifsilent

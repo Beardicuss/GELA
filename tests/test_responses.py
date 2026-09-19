@@ -16,6 +16,9 @@ def test_state_details_select_reusable_response_events() -> None:
     assert response_event_for_detail("state already_stopped app=Steam") == "already_stopped"
     assert response_event_for_detail("state already_on radio=WiFi") == "already_on"
     assert response_event_for_detail("state already_off radio=Bluetooth") == "already_off"
+    assert response_event_for_detail("notes ready") == "notes_ready"
+    assert response_event_for_detail("notes writing") == "notes_writing"
+    assert response_event_for_detail("notes stopped saved=C:\\Desktop\\gela.txt") == "notes_stopped"
     assert response_event_for_detail("verified stable process=chrome") == "launch_success"
 
 

@@ -9,3 +9,6 @@ vo_already_running_001,already_running,უკვე გაშვებული�
 vo_already_stopped_001,already_stopped,უკვე დახურულია.,Brief neutral status; no application name.,vo_already_stopped_001.wav,vo_already_stopped_001.wav
 vo_already_on_001,already_on,უკვე ჩართულია.,Brief neutral status.,vo_already_on_001.wav,vo_already_on_001.wav
 vo_already_off_001,already_off,უკვე გამორთულია.,Brief neutral status.,vo_already_off_001.wav,vo_already_off_001.wav
+vo_notes_ready_001,notes_ready,მზადაა.,Brief confirmation that the notes window is ready.,vo_notes_ready_001.wav,vo_notes_ready_001.wav
+vo_notes_writing_001,notes_writing,ვწერ.,Brief confirmation that dictation is active.,vo_notes_writing_001.wav,vo_notes_writing_001.wav
+vo_notes_stopped_001,notes_stopped,შეჩერებულია.,Brief confirmation that dictation has stopped.,vo_notes_stopped_001.wav,vo_notes_stopped_001.wav
