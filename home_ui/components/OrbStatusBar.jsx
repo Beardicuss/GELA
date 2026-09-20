@@ -5,8 +5,8 @@
  * ring + STANDBY + 3 dots), relocated to the lower part of the page so the
  * particles can own the centre of the ring.
  */
-const GOLD = '#dc5148'
-const GOLD_BRIGHT = '#f0a48d'
+const GOLD = '#00ffff'
+const GOLD_BRIGHT = '#00ffc8'
 
 function Waveform({ active, cx, cy, width = 200 }) {
   const barCount = 28
@@ -63,7 +63,7 @@ export default function OrbStatusBar({ state = 'idle', statusText = 'STANDBY' })
         <Waveform active={isActive} cx={cx} cy={cy} width={170} />
 
         {/* center ring + ball */}
-        <circle cx={cx} cy={cy} r={20} stroke={GOLD} strokeWidth="1.5" strokeOpacity="0.7" fill="#030200" filter="url(#sbBlur)" className="orb-center-ring" />
+        <circle cx={cx} cy={cy} r={20} stroke={GOLD} strokeWidth="1.5" strokeOpacity="0.7" fill="#01070b" filter="url(#sbBlur)" className="orb-center-ring" />
         <circle cx={cx} cy={cy} r={6} fill={GOLD_BRIGHT} opacity="0.95" className="orb-center" style={{ filter: `drop-shadow(0 0 10px ${GOLD})` }} />
 
         {/* label */}

@@ -24,7 +24,7 @@ class AvatarErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#dc5148", fontFamily: "monospace", fontSize: 11 }}>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#00ffff", fontFamily: "monospace", fontSize: 11 }}>
           [AVATAR ERROR: {this.state.message}]
         </div>
       );
@@ -40,8 +40,8 @@ function makeSprite(): THREE.Texture {
   const ctx = c.getContext("2d")!;
   const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
   g.addColorStop(0,    "rgba(255,255,255,1)");
-  g.addColorStop(0.18, "rgba(255,210,194,0.9)");
-  g.addColorStop(0.5,  "rgba(220,81,72,0.35)");
+  g.addColorStop(0.18, "rgba(190,255,255,0.92)");
+  g.addColorStop(0.5,  "rgba(0,255,255,0.38)");
   g.addColorStop(1,    "rgba(0,0,0,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 64, 64);
@@ -92,7 +92,7 @@ const vert = /* glsl */`
       p.x += cos(p.z * 4.0 + t) * sw;
       p.z += sin(p.x * 4.0 + t) * sw;
       if (sin(ph * 7.3 + uTime * 5.0) > 0.5) {
-        vCol = mix(vCol, vec3(1.0, 0.65, 0.4), strength * 0.8);
+        vCol = mix(vCol, vec3(1.0, 0.58, 0.0), strength * 0.8);
       }
     }
 
@@ -103,7 +103,7 @@ const vert = /* glsl */`
       p += aNorm * wave;
       float lowFace = smoothstep(0.0, -0.15, p.y);
       p += aNorm * lowFace * sin(uTime * 18.0 + ph) * uVoice * 0.03;
-      vCol = mix(vCol, vec3(1.0, 0.78, 0.7), strength * 0.25);
+      vCol = mix(vCol, vec3(0.0, 1.0, 0.78), strength * 0.25);
     }
 
     vec4 mvp = modelViewMatrix * vec4(p, 1.0);
@@ -127,8 +127,14 @@ const frag = /* glsl */`
 /* ─── Sample mesh surface ─────────────────────────────────── */
 const PARTICLE_COUNT = 70_000;
 
-function buildParticleCloud(mesh: THREE.Mesh) {
-  const sampler = new MeshSurfaceSampler(mesh).build();
+function buildParticleCloud(meshes: THREE.Mesh[], bounds: THREE.Box3) {
+  const samplers = meshes.map((mesh) => ({
+    mesh,
+    sampler: new MeshSurfaceSampler(mesh).build(),
+    weight: Math.max(1, mesh.geometry.index?.count || mesh.geometry.attributes.position?.count || 1),
+    normalMatrix: new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld),
+  }));
+  const totalWeight = samplers.reduce((sum, item) => sum + item.weight, 0);
   const pos    = new Float32Array(PARTICLE_COUNT * 3);
   const norms  = new Float32Array(PARTICLE_COUNT * 3);
   const cols   = new Float32Array(PARTICLE_COUNT * 3);
@@ -137,19 +143,26 @@ function buildParticleCloud(mesh: THREE.Mesh) {
 
   const p = new THREE.Vector3();
   const n = new THREE.Vector3();
+  const center = bounds.getCenter(new THREE.Vector3());
+  const size = bounds.getSize(new THREE.Vector3());
+  const scale = 1.4 / Math.max(size.x, size.y, size.z, 0.001);
 
-  // Gela red 60%, pale rose 25%, warm copper 15%.
+  // H.E.X. spectrum: electric cyan, ice, deep blue, with rare warm signal sparks.
   const palette: [number,number,number][] = [
-    [0.86, 0.27, 0.24],
-    [1.0, 0.71, 0.65],
-    [0.65, 0.14, 0.15],
-    [0.87, 0.50, 0.34],
-    [1.0, 0.84, 0.73],
+    [0.0, 1.0, 1.0],
+    [0.75, 0.95, 1.0],
+    [0.0, 0.53, 1.0],
+    [0.0, 1.0, 0.78],
+    [1.0, 0.58, 0.0],
   ];
   const cumW = [0.38, 0.60, 0.84, 0.94, 1.0];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
-    sampler.sample(p, n);
+    let pick = Math.random() * totalWeight;
+    const chosen = samplers.find((item) => (pick -= item.weight) <= 0) || samplers[0];
+    chosen.sampler.sample(p, n);
+    p.applyMatrix4(chosen.mesh.matrixWorld).sub(center).multiplyScalar(scale);
+    n.applyMatrix3(chosen.normalMatrix).normalize();
     pos[i*3]     = p.x; pos[i*3+1]   = p.y; pos[i*3+2]   = p.z;
     norms[i*3]   = n.x; norms[i*3+1] = n.y; norms[i*3+2] = n.z;
     const r = Math.random();
@@ -248,25 +261,40 @@ export default function ApexHumanoidAvatar3D({
   const [geo, setGeo] = useState<THREE.BufferGeometry | null>(null);
   const [autoScale, setAutoScale] = useState<number>(1.0);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [modelUrl, setModelUrl] = useState("/models/head.glb");
   const sprite = useMemo(() => (typeof window !== "undefined" ? makeSprite() : new THREE.Texture()), []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/avatar", { cache: "no-store" }).then((response) => response.json()).then((data) => {
+      if (active && data.custom) setModelUrl(`/api/avatar?model=active&v=${data.version || Date.now()}`);
+    }).catch(() => { /* default avatar remains active */ });
+    const changed = (event: Event) => {
+      const url = (event as CustomEvent<{ url?: string }>).detail?.url;
+      if (url) setModelUrl(url);
+      else fetch("/api/avatar", { cache: "no-store" }).then((response) => response.json()).then((data) =>
+        setModelUrl(data.custom ? `/api/avatar?model=active&v=${data.version || Date.now()}` : "/models/head.glb"));
+    };
+    window.addEventListener("gela-avatar-changed", changed);
+    return () => { active = false; window.removeEventListener("gela-avatar-changed", changed); };
+  }, []);
 
   // Load GLB imperatively — no Suspense, full error control
   useEffect(() => {
     const loader = new GLTFLoader();
-    console.log("[Avatar3D] Starting GLB load from /models/head.glb");
+    setGeo(null); setLoadErr(null);
+    console.log("[Avatar3D] Starting GLB load from", modelUrl);
 
     loader.load(
-      "/models/head.glb",
+      modelUrl,
       (gltf) => {
         console.log("[Avatar3D] GLB loaded OK. Scene children:", gltf.scene.children.length);
-        let mesh: THREE.Mesh | null = null;
+        const meshes: THREE.Mesh[] = [];
+        gltf.scene.updateMatrixWorld(true);
         gltf.scene.traverse(obj => {
-          if (!mesh && (obj as THREE.Mesh).isMesh) {
-            mesh = obj as THREE.Mesh;
-            console.log("[Avatar3D] Mesh found:", mesh.name, "verts:", mesh.geometry.attributes.position?.count);
-          }
+          if ((obj as THREE.Mesh).isMesh && (obj as THREE.Mesh).geometry?.attributes?.position) meshes.push(obj as THREE.Mesh);
         });
-        if (!mesh) {
+        if (!meshes.length) {
           console.error("[Avatar3D] No mesh inside GLB!");
           setLoadErr("No mesh found in GLB");
           return;
@@ -275,23 +303,23 @@ export default function ApexHumanoidAvatar3D({
           // ── Auto-fit: normalise scale so head height ≈ 1.4 world units ──
           // Camera is at z=3.5, fov=50 → visible height at z=0 ≈ 3.3 units.
           // Target: head fills ~42% of that → ~1.4 units tall.
-          const box = new THREE.Box3().setFromObject(mesh!);
+          const box = new THREE.Box3().setFromObject(gltf.scene);
           const size = new THREE.Vector3();
           box.getSize(size);
           const maxDim = Math.max(size.x, size.y, size.z);
           const targetSize = 1.4;
           const scale = maxDim > 0 ? targetSize / maxDim : 1.0;
           console.log("[Avatar3D] BBox:", size, "→ autoScale:", scale);
-          setAutoScale(scale);
+          setAutoScale(1);
 
-          const { pos, norms, cols, phases, speeds } = buildParticleCloud(mesh!);
+          const { pos, norms, cols, phases, speeds } = buildParticleCloud(meshes, box);
           const g = new THREE.BufferGeometry();
           g.setAttribute("position", new THREE.BufferAttribute(pos,    3));
           g.setAttribute("aNorm",    new THREE.BufferAttribute(norms,  3));
           g.setAttribute("aCol",     new THREE.BufferAttribute(cols,   3));
           g.setAttribute("aPhase",   new THREE.BufferAttribute(phases, 1));
           g.setAttribute("aSpeed",   new THREE.BufferAttribute(speeds, 1));
-          console.log("[Avatar3D] Particle cloud built:", PARTICLE_COUNT, "points");
+          console.log("[Avatar3D] Particle cloud built:", PARTICLE_COUNT, "points from", meshes.length, "meshes");
           setGeo(g);
         } catch (e) {
           console.error("[Avatar3D] Sampling error:", e);
@@ -308,7 +336,7 @@ export default function ApexHumanoidAvatar3D({
         setLoadErr(String(err));
       }
     );
-  }, []);
+  }, [modelUrl]);
 
   const cycle = () => {
     if (!interactive) return;

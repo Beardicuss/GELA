@@ -21,6 +21,77 @@ from .config import PROJECT_ROOT, USER_DATA_ROOT, USER_LOG_ROOT
 
 BUNDLE_CONFIG_PATH = USER_DATA_ROOT / "home" / "bundle_path.json"
 SOURCE_BUNDLE = PROJECT_ROOT / "home_ui" / ".next" / "standalone"
+HOME_WINDOW_TITLE = "Gela Home"
+
+BOOT_HTML = r"""<!doctype html>
+<html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020202;color:#e8f4f8}
+body{font-family:Consolas,"Segoe UI",sans-serif;background:radial-gradient(ellipse at 50% 46%,#072b3d 0,#03131f 38%,#01050a 72%,#020202 100%)}
+.grid{position:fixed;inset:0;opacity:.22;background-image:linear-gradient(rgba(0,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(0,136,255,.07) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(circle at center,#000,transparent 80%)}
+.scan{position:fixed;inset:0;opacity:.07;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,255,255,.2) 4px)}
+.frame{position:fixed;inset:28px;border:1px solid rgba(0,255,255,.2);clip-path:polygon(0 0,34% 0,35% 14px,65% 14px,66% 0,100% 0,100% 100%,66% 100%,65% calc(100% - 14px),35% calc(100% - 14px),34% 100%,0 100%)}
+.brand{position:fixed;top:30px;left:38px;color:#00ffff;font-size:10px;letter-spacing:.34em;text-shadow:0 0 14px #00ffff}.brand b{color:#00ffc8}
+.core{position:fixed;left:50%;top:46%;width:186px;height:186px;transform:translate(-50%,-50%);border:1px solid rgba(0,255,255,.55);border-radius:50%;box-shadow:0 0 36px rgba(0,255,255,.15),inset 0 0 36px rgba(0,136,255,.12);animation:pulse 2s ease-in-out infinite}
+.core:before,.core:after{content:"";position:absolute;border-radius:50%;inset:22px;border:1px dashed rgba(0,255,255,.28);animation:spin 7s linear infinite}.core:after{inset:58px;border:0;background:#00ffff;box-shadow:0 0 14px #00ffff,0 0 60px rgba(0,255,255,.75);animation:pulse 1.4s ease-in-out infinite}
+.status{position:fixed;left:50%;top:calc(46% + 130px);transform:translateX(-50%);text-align:center;letter-spacing:.28em;font-size:11px;color:#00ffc8}.line{width:340px;height:1px;margin:14px auto;background:linear-gradient(90deg,transparent,#00ffff,transparent);box-shadow:0 0 12px #00ffff}.sub{font-size:9px;color:rgba(232,244,248,.48);letter-spacing:.2em}
+.telemetry{position:fixed;left:38px;bottom:34px;color:rgba(232,244,248,.45);font-size:9px;line-height:1.8;letter-spacing:.14em}.telemetry i{color:#ff9500;font-style:normal}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{50%{opacity:.62;filter:brightness(1.4)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head><body><div class="grid"></div><div class="scan"></div><div class="frame"></div>
+<div class="brand"><b>◆</b> SOFTCURSE SYSTEMS // GELA BOOT</div><div class="core"></div>
+<div class="status">INITIALIZING COMMAND NEXUS<div class="line"></div><div class="sub">LOCAL CONTROL · VOICE CORE · HOME SURFACE</div></div>
+<div class="telemetry"><i>01</i> SECURE LOCAL SESSION<br><i>02</i> STARTING GELA SERVICES<br><i>03</i> MATERIALIZING HOME INTERFACE</div>
+</body></html>"""
+
+
+def _visit_home_windows(visitor) -> int:
+    """Visit every Gela Home top-level window in the current Windows session."""
+    if os.name != "nt":
+        return 0
+    user32 = ctypes.windll.user32
+    count = 0
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+    def visit(handle, _parameter):
+        nonlocal count
+        length = user32.GetWindowTextLengthW(handle)
+        title = ctypes.create_unicode_buffer(length + 1)
+        user32.GetWindowTextW(handle, title, length + 1)
+        if title.value == HOME_WINDOW_TITLE:
+            count += 1
+            visitor(user32, handle)
+        return True
+
+    user32.EnumWindows(visit, None)
+    return count
+
+
+def home_window_exists() -> bool:
+    return _visit_home_windows(lambda _user32, _handle: None) > 0
+
+
+def home_window_visible() -> bool:
+    visible = False
+
+    def inspect(user32, handle) -> None:
+        nonlocal visible
+        visible = visible or bool(user32.IsWindowVisible(handle))
+
+    _visit_home_windows(inspect)
+    return visible
+
+
+def set_home_window_visible(visible: bool) -> bool:
+    """Hide Home to reveal Explorer, or restore it without creating a taskbar button."""
+    sw_hide = 0
+    sw_show_maximized = 3
+
+    def update(user32, handle) -> None:
+        user32.ShowWindowAsync(handle, sw_show_maximized if visible else sw_hide)
+        if visible:
+            user32.SetForegroundWindow(handle)
+
+    return _visit_home_windows(update) > 0
 
 
 def _hide_home_from_taskbar() -> bool:
@@ -52,7 +123,7 @@ def _hide_home_from_taskbar() -> bool:
         length = user32.GetWindowTextLengthW(handle)
         title = ctypes.create_unicode_buffer(length + 1)
         user32.GetWindowTextW(handle, title, length + 1)
-        if title.value != "Gela Home":
+        if title.value != HOME_WINDOW_TITLE:
             return True
         style = get_style(handle, gwl_exstyle)
         set_style(handle, gwl_exstyle, (style | ws_ex_toolwindow) & ~ws_ex_appwindow)
@@ -162,26 +233,36 @@ def run_home_window() -> None:
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
         try:
-            _wait_ready(url, server)
             profile = bundle / ".runtime" / "webview-profile"
             profile.mkdir(parents=True, exist_ok=True)
             import webview
 
             window = webview.create_window(
-                "Gela Home", url=url, fullscreen=True, frameless=True,
-                resizable=False, easy_drag=False, background_color="#0a0909",
+                HOME_WINDOW_TITLE, html=BOOT_HTML, fullscreen=True, frameless=True,
+                resizable=False, easy_drag=False, background_color="#020202",
                 hidden=True,
             )
 
+            revealed = False
+
             def reveal_home() -> None:
+                nonlocal revealed
+                if revealed:
+                    return
                 # A hidden native window already has an HWND, but Explorer has not
                 # yet registered it in the taskbar. Apply the tool-window style
                 # first, then reveal it as the full-screen Home surface.
                 _hide_home_from_taskbar()
                 window.show()
 
+                revealed = True
+
+            def load_home() -> None:
+                _wait_ready(url, server)
+                window.load_url(url)
+
             window.events.loaded += reveal_home
-            webview.start(gui="edgechromium", debug=False, private_mode=False, storage_path=str(profile))
+            webview.start(load_home, gui="edgechromium", debug=False, private_mode=False, storage_path=str(profile))
         finally:
             _stop_server(server)
 

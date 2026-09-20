@@ -41,20 +41,20 @@ type AgentInfo = {
 
 /* Keep in sync with the graphical node roster in ReasoningWeb.jsx. */
 export const ROSTER: { key: string; name: string; color: string }[] = [
-  { key: "this_pc", name: "This PC", color: "#dc5148" },
-  { key: "documents", name: "Documents", color: "#dc5148" },
-  { key: "apps", name: "Apps", color: "#dc5148" },
-  { key: "downloads", name: "Downloads", color: "#dc5148" },
-  { key: "games", name: "Gaming Hub", color: "#dc5148" },
-  { key: "music", name: "Media Library", color: "#dc5148" },
-  { key: "search", name: "Windows Search", color: "#dc5148" },
-  { key: "shortcuts", name: "Custom Circles", color: "#d99468" },
-  { key: "settings", name: "Settings", color: "#d99468" },
-  { key: "browsers", name: "Browsers", color: "#d99468" },
-  { key: "task_manager", name: "Task Manager", color: "#d99468" },
-  { key: "gela_control", name: "Gela Control", color: "#d99468" },
-  { key: "recycle_bin", name: "Recycle Bin", color: "#d99468" },
-  { key: "desktop", name: "Desktop Items", color: "#a4a0a0" },
+  { key: "this_pc", name: "This PC", color: "#00ffff" },
+  { key: "documents", name: "Documents", color: "#00ffff" },
+  { key: "apps", name: "Apps", color: "#00ffff" },
+  { key: "downloads", name: "Downloads", color: "#00ffff" },
+  { key: "games", name: "Gaming Hub", color: "#00ffff" },
+  { key: "music", name: "Media Library", color: "#00ffff" },
+  { key: "search", name: "Windows Search", color: "#00ffff" },
+  { key: "shortcuts", name: "Custom Circles", color: "#ff9500" },
+  { key: "settings", name: "Settings", color: "#ff9500" },
+  { key: "browsers", name: "Browsers", color: "#ff9500" },
+  { key: "task_manager", name: "Task Manager", color: "#ff9500" },
+  { key: "gela_control", name: "Gela Control", color: "#ff9500" },
+  { key: "recycle_bin", name: "Recycle Bin", color: "#ff9500" },
+  { key: "desktop", name: "Desktop Items", color: "#7f9bb3" },
 ];
 
 const GRAPH_ROSTER: (string | number | boolean)[][] = [
@@ -88,7 +88,7 @@ export const INFO: Record<string, AgentInfo> = {
 };
 
 const STATUS_LINE: Record<AgentInfo["status"], { color: string; text: string }> = {
-  online: { color: "#d99468", text: "Ready to open" },
+  online: { color: "#00ffc8", text: "Ready to open" },
   standby: { color: "#c9a84c", text: "Standby - in active development" },
   integration: { color: "#7f9bb3", text: "Integration - wired into the core" },
 };
@@ -196,8 +196,8 @@ export function AgentOverview({ sel, onClose, onLaunch }: { sel: NodeSel; onClos
         )}
 
         <button type="button" onClick={() => onLaunch(sel.key)} style={{
-          padding: "11px 16px", background: "rgba(166, 37, 33, 0.24)", color: "#f3d0c8",
-          border: "1px solid #b8443b", borderRadius: 5, cursor: "pointer", fontWeight: 700,
+          padding: "11px 16px", background: "rgba(0, 255, 255, 0.08)", color: "#bffcff",
+          border: "1px solid rgba(0,255,255,.45)", borderRadius: 5, cursor: "pointer", fontWeight: 700,
           letterSpacing: "0.12em", textTransform: "uppercase",
         }}>Open {sel.name} ↗</button>
 
@@ -333,21 +333,21 @@ export default function ApexWorld() {
       {/* Windows Explorer remains the desktop. */}
       <button type="button" onClick={() => launch("desktop")} aria-label="Show normal Windows desktop" style={{
         position: "absolute", top: 22, right: 22, zIndex: 46,
-        background: "rgba(19, 12, 13, 0.86)", border: "1px solid #80504b", borderRadius: 5,
-        color: "#e8b5a9", padding: "8px 12px", cursor: "pointer", fontSize: 10,
+        background: "rgba(5,8,16,.88)", border: "1px solid rgba(0,255,255,.35)", borderRadius: 5,
+        color: "#bffcff", padding: "8px 12px", cursor: "pointer", fontSize: 10,
         fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.12em",
       }}>SHOW DESKTOP ↗</button>
-      <button type="button" onClick={() => openAgent({ key: "shortcuts", name: "Custom Circles", color: "#d99468" })}
+      <button type="button" onClick={() => openAgent({ key: "shortcuts", name: "Custom Circles", color: "#ff9500" })}
         aria-label="Add or edit custom circles" style={{
-          position: "absolute", top: 62, right: 22, zIndex: 46, background: "rgba(19,12,13,.78)",
-          border: "1px solid #65403b", borderRadius: 5, color: "#cf9286", padding: "7px 10px", cursor: "pointer",
+          position: "absolute", top: 62, right: 22, zIndex: 46, background: "rgba(5,8,16,.82)",
+          border: "1px solid rgba(255,149,0,.38)", borderRadius: 5, color: "#ffc266", padding: "7px 10px", cursor: "pointer",
           fontSize: 9, fontFamily: "var(--font-mono,monospace)", letterSpacing: ".11em",
         }}>CUSTOMIZE CIRCLES +</button>
 
       {/* Backdrop, waves, and warm glow behind the avatar. */}
       <div aria-hidden="true" style={{
         position: "absolute", inset: 0,
-        background: "radial-gradient(ellipse 95% 88% at 50% 42%, #2c1717 0%, #1d1011 38%, #120d0e 72%, #0a0909 100%)",
+        background: "radial-gradient(ellipse 95% 88% at 50% 42%, #082838 0%, #051827 38%, #020b14 72%, #020202 100%)",
       }} />
       <div className="gela-hud-grid" aria-hidden="true" />
       <div className="gela-scanlines" aria-hidden="true" />
@@ -361,10 +361,10 @@ export default function ApexWorld() {
         </div>
       )}
 
-      {/* Warm light cast brightens while speaking. */}
+      {/* H.E.X. cyan field brightens while speaking. */}
       <div aria-hidden="true" style={{
         position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none", mixBlendMode: "screen",
-        background: `radial-gradient(circle at 50% 42%, rgba(205,54,50,${orbState === "speaking" ? 0.30 : 0.18}) 0%, rgba(166,37,33,0.08) 30%, rgba(12,9,9,0) 62%)`,
+        background: `radial-gradient(circle at 50% 42%, rgba(0,255,255,${orbState === "speaking" ? 0.24 : 0.13}) 0%, rgba(0,136,255,0.07) 30%, rgba(1,5,10,0) 62%)`,
         transition: "background 0.6s ease",
       }} />
 
@@ -401,7 +401,7 @@ export default function ApexWorld() {
         <div aria-hidden="true" style={{
           position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
           width: "min(440px, 45vw)", height: "min(660px, 74vh)",
-          background: "radial-gradient(ellipse at center, rgba(29,16,17,0.93) 0%, rgba(29,16,17,0.81) 38%, rgba(29,16,17,0) 72%)",
+          background: "radial-gradient(ellipse at center, rgba(2,18,28,0.9) 0%, rgba(2,15,25,0.72) 38%, rgba(1,5,10,0) 72%)",
         }} />
         <ApexHumanoidAvatar3D state={orbState} interactive={false} maxFps={renderFps} />
       </div>
@@ -410,11 +410,11 @@ export default function ApexWorld() {
       <OrbStatusBar state={orbState} statusText={workerFresh ? gelaStatus : "unverified"} />
       <button type="button" onClick={() => { setSelected(null); setHealthOpen((open) => !open); }} aria-expanded={healthOpen}
         aria-label="Open Gela system health" style={{ position: "absolute", bottom: 15, left: 24, zIndex: 30,
-          color: "#d99468", fontSize: 11, letterSpacing: "0.1em", background: "transparent",
-          border: 0, borderBottom: "1px solid #744138", cursor: "pointer", textAlign: "left", padding: "2px 0",
+          color: "#00ffc8", fontSize: 11, letterSpacing: "0.1em", background: "transparent",
+          border: 0, borderBottom: "1px solid rgba(0,255,255,.3)", cursor: "pointer", textAlign: "left", padding: "2px 0",
           maxWidth: "calc(100vw - 48px)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {feedback || `GELA / WORKER ${workerFresh ? "LIVE" : "UNVERIFIED"} · PC LINK ${bridgeFresh ? "LIVE" : "UNVERIFIED"}`}
-        <span style={{ color: "#8f6c66", marginLeft: 8 }}>▴ HEALTH</span>
+        <span style={{ color: "#698d99", marginLeft: 8 }}>▴ HEALTH</span>
       </button>
       {healthOpen && <GelaHealthPanel health={health} onClose={() => setHealthOpen(false)} />}
       {selected && (selected.key === "desktop"

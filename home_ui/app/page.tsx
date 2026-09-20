@@ -20,8 +20,8 @@ export default function Home() {
         id="main"
         suppressHydrationWarning
         style={{
-          background: "#0e0b0b",
-          color: "#f0ede8",
+          background: "#020202",
+          color: "#e8f4f8",
           position: "relative",
           overflow: "hidden",
           width: "100vw",
@@ -36,8 +36,8 @@ export default function Home() {
       id="main"
       suppressHydrationWarning
       style={{
-          background: "#0e0b0b",
-        color: "#f0ede8",
+          background: "#020202",
+        color: "#e8f4f8",
         position: "relative",
         overflow: "hidden",
         width: "100vw",

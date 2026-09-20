@@ -101,15 +101,15 @@ export default function GelaCatalogPanel({ kind, onClose, onFeedback }: {
     <div role="dialog" aria-modal="true" aria-label={title} style={{
       position: "fixed", top: "11vh", left: "50%", transform: "translateX(-50%)",
       width: "min(560px, calc(100vw - 32px))", maxHeight: "78vh", zIndex: 70,
-      display: "flex", flexDirection: "column", background: "rgba(17, 12, 13, 0.97)",
-      border: "1px solid #a63d37", borderRadius: 10, boxShadow: "0 20px 70px #000b, 0 0 42px #942a2928",
-      color: "#f0e8e6", overflow: "hidden",
+      display: "flex", flexDirection: "column", background: "rgba(5,8,16,.97)",
+      border: "1px solid rgba(0,255,255,.4)", borderRadius: 10, boxShadow: "0 20px 70px #000b,0 0 42px rgba(0,255,255,.1)",
+      color: "#e8f4f8", overflow: "hidden",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px", borderBottom: "1px solid #69302e" }}>
-        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#dc5148", boxShadow: "0 0 12px #dc5148" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px", borderBottom: "1px solid rgba(0,255,255,.2)" }}>
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#00ffff", boxShadow: "0 0 12px #00ffff" }} />
         <div style={{ flex: 1 }}>
-          <div style={{ color: "#ef8175", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em" }}>GELA / {title}</div>
-          <div style={{ color: "#a99491", fontSize: 11, marginTop: 3 }}>
+          <div style={{ color: "#00ffff", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em" }}>GELA / {title}</div>
+          <div style={{ color: "rgba(232,244,248,.62)", fontSize: 11, marginTop: 3 }}>
             {loading ? "Reading Gela's catalog…" : `${filtered.length} of ${items.length} available`}
           </div>
         </div>
@@ -123,8 +123,8 @@ export default function GelaCatalogPanel({ kind, onClose, onFeedback }: {
         }}>+ ADD STANDALONE GAME</button>}
         <input ref={searchRef} type="search" value={query} onChange={(event) => setQuery(event.target.value)}
           placeholder={`Search ${title.toLowerCase()}…`} aria-label={`Search ${title.toLowerCase()}`}
-          style={{ width: "100%", background: "#0c090a", color: "#f0e8e6", border: "1px solid #70403b",
-            borderRadius: 5, outlineColor: "#dc5148", padding: "11px 13px", fontSize: 14 }} />
+          style={{ width: "100%", background: "#020710", color: "#e8f4f8", border: "1px solid rgba(0,255,255,.28)",
+            borderRadius: 5, outlineColor: "#00ffff", padding: "11px 13px", fontSize: 14 }} />
       </div>
       {error && <div role="alert" style={{ color: "#f3a79e", padding: "5px 20px 12px", fontSize: 12 }}>{error}</div>}
       <div style={{ overflowY: "auto", padding: "4px 20px 20px", minHeight: 100 }}>

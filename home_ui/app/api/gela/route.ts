@@ -123,7 +123,13 @@ export async function POST(request: NextRequest) {
   } else if (action === "recycle_bin") {
     launch("explorer.exe", ["shell:RecycleBinFolder"]);
   } else if (action === "desktop") {
-    launch("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "(New-Object -ComObject Shell.Application).MinimizeAll()"]);
+    if (existsSync(gelaExe)) {
+      launch(gelaExe, ["--home-hide"]);
+    } else if (existsSync(pythonw)) {
+      launch(pythonw, ["-m", "voice_assistant.tray", "--home-hide"], true);
+    } else {
+      return NextResponse.json({ error: "Gela's PC runtime was not found" }, { status: 503 });
+    }
   } else {
     return NextResponse.json({ error: "Unknown destination" }, { status: 400 });
   }

@@ -17,7 +17,7 @@ import { useEffect, useRef } from 'react'
 const NS = 'http://www.w3.org/2000/svg'
 const AX_DEFAULT = 340, AY_DEFAULT = 240   // exact viewBox centre = the orb's world-origin anchor (where the 3D particle
                            // ball is centred), so the spoke hub originates from the particle cluster's centre
-const COL = { consultant: '#dc5148', doer: '#d99468', tool: '#a4a0a0' }
+const COL = { consultant: '#00ffff', doer: '#ff9500', tool: '#7f9bb3' }
 
 // Right side re-spaced into a clean vertical ladder (drive→finance→editor→memory→email→design)
 // so no label collides with a neighbouring circle. Left/bottom unchanged.
@@ -69,10 +69,10 @@ export default function ReasoningWeb({ state = 'standby', trace = null, mode = '
       label: '#1f2d3a', labelMinor: '#55677a', labelDorm: '#8a99a8', mote: '#0aa9c8', moteHot: '#067a96',
       col: { consultant: '#067a96', doer: '#b26d05', tool: '#64748b' },
     } : {
-      ring: '#6d2928', pcb: '#5b2624', pcbDot: '#dc5148', fieldMesh: '#482322', fieldDot: '#bb4540',
-      mesh: '#5c2826', spoke: '#722e2b', spokeHot: '#ef756b', link: '#d99468',
-      label: '#f1e7e5', labelMinor: '#c5aaa5', labelDorm: '#705d5b', mote: '#ce554d', moteHot: '#f2aea2',
-      col: { consultant: '#dc5148', doer: '#d99468', tool: '#a4a0a0' },
+      ring: '#064c5a', pcb: '#07556a', pcbDot: '#00ffff', fieldMesh: '#073d50', fieldDot: '#00aacc',
+      mesh: '#07516a', spoke: '#087994', spokeHot: '#00ffff', link: '#ff9500',
+      label: '#e8f4f8', labelMinor: '#9fc8d2', labelDorm: '#526d79', mote: '#00c9dd', moteHot: '#00ffc8',
+      col: { consultant: '#00ffff', doer: '#ff9500', tool: '#7f9bb3' },
     }
     const mk = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e }
     const defs = mk('defs')
@@ -101,11 +101,11 @@ export default function ReasoningWeb({ state = 'standby', trace = null, mode = '
     // ── H.E.X. core (unless layered over the 3D entity) ──
     let halo, ring, gold, hot
     if (!coreless) {
-      halo = mk('circle', { cx: AX, cy: AY, r: 30, fill: '#cf453e', opacity: 0.14, filter: 'url(#rw-soft)' })
-      ring = mk('circle', { cx: AX, cy: AY, r: 18, fill: 'none', stroke: '#e98c81', 'stroke-width': 1.2, opacity: 0.6 })
-      gold = mk('circle', { cx: AX, cy: AY, r: 11, fill: '#e9a484', filter: 'url(#rw-glow)' })
+      halo = mk('circle', { cx: AX, cy: AY, r: 30, fill: '#00ffff', opacity: 0.14, filter: 'url(#rw-soft)' })
+      ring = mk('circle', { cx: AX, cy: AY, r: 18, fill: 'none', stroke: '#00ffff', 'stroke-width': 1.2, opacity: 0.6 })
+      gold = mk('circle', { cx: AX, cy: AY, r: 11, fill: '#00ffc8', filter: 'url(#rw-glow)' })
       hot = mk('circle', { cx: AX, cy: AY, r: 4, fill: '#ffffff', filter: 'url(#rw-glow)' })
-      const lab = mk('text', { x: AX, y: AY + 34, 'text-anchor': 'middle', 'font-size': 12, 'font-family': 'inherit', fill: '#e9a484' })
+      const lab = mk('text', { x: AX, y: AY + 34, 'text-anchor': 'middle', 'font-size': 12, 'font-family': 'inherit', fill: '#00ffc8' })
       lab.textContent = 'GELA'
       coreG.append(halo, ring, gold, hot, lab)
     }
@@ -182,7 +182,7 @@ export default function ReasoningWeb({ state = 'standby', trace = null, mode = '
           n.hover = true
           n.circ.setAttribute('filter', 'url(#rw-glow)'); n.circ.setAttribute('stroke-width', 3.2); n.circ.setAttribute('r', rr + 3)
           n.spoke.setAttribute('stroke', n.col); n.spoke.setAttribute('stroke-width', 1.8); n.spoke.setAttribute('opacity', 0.95)
-          t.setAttribute('fill', '#fff4f1'); t.setAttribute('font-weight', '700'); t.setAttribute('filter', 'url(#rw-glow)')
+          t.setAttribute('fill', '#f2ffff'); t.setAttribute('font-weight', '700'); t.setAttribute('filter', 'url(#rw-glow)')
         })
         hit.addEventListener('mouseleave', () => {
           n.hover = false

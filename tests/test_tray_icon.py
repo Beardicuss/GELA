@@ -33,6 +33,7 @@ def test_notes_window_opens_as_separate_process(monkeypatch) -> None:
 def test_home_window_opens_as_separate_process(monkeypatch, tmp_path) -> None:
     calls = []
     monkeypatch.setattr("voice_assistant.tray.find_home_bundle", lambda: tmp_path)
+    monkeypatch.setattr("voice_assistant.tray.home_window_exists", lambda: False)
     monkeypatch.setattr("voice_assistant.tray.subprocess.Popen", lambda *args, **kwargs: calls.append((args, kwargs)))
     monkeypatch.setattr("voice_assistant.tray.sys.frozen", False, raising=False)
 

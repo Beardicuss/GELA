@@ -9,7 +9,7 @@ from .config import PROJECT_ROOT, load_settings
 from .launcher import launch
 from .models import validate_model_directory
 from .recognizer import listen_for_app
-from .startup import install_startup, startup_shortcut, uninstall_startup
+from .startup import install_startup, startup_enabled, uninstall_startup
 from .vocabulary import AUDIT_PATH, audit_georgian
 from .responses import VoiceResponses
 from .audio_test import recognize_command_file
@@ -127,8 +127,7 @@ def main() -> int:
         print("Startup disabled." if uninstall_startup() else "Startup was not enabled.")
         return 0
     if args.command == "startup-status":
-        path = startup_shortcut()
-        print(f"Startup: {'enabled' if path.is_file() else 'disabled'} ({path})")
+        print(f"Startup: {'enabled' if startup_enabled() else 'disabled'}")
         return 0
     if args.command == "audit-vocabulary":
         report = audit_georgian()

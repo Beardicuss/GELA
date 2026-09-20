@@ -18,12 +18,17 @@ from .config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, USER_DATA_ROOT, load_sett
 from .mobile_bridge import MOBILE_TRANSFER_ROOT, MobileBridgeService, ensure_transfer_directories
 from .mcu_face import McuFaceBridge
 from .mcu_terminal import McuTerminalService
-from .home_window import find_home_bundle
+from .home_window import (
+    find_home_bundle,
+    home_window_exists,
+    home_window_visible,
+    set_home_window_visible,
+)
 from .actions import SystemAction, execute_action
 from .ambient import AmbientMoodMonitor
 from .responses import VoiceResponses
 from .single_instance import SingleInstanceLock
-from .startup import install_startup, startup_shortcut, uninstall_startup
+from .startup import install_startup, startup_enabled, uninstall_startup
 from .storage import atomic_write_text
 from .supervisor import mark_intentional_exit, run_supervisor
 from .worker import LOG_PATH, WorkerControls, run_worker
@@ -131,6 +136,12 @@ class TrayApplication:
         return pystray.Menu(
             pystray.MenuItem(self._status_text, None, enabled=False),
             pystray.MenuItem(self._pause_text, self._toggle_pause, default=True),
+            pystray.MenuItem(
+                "Gela Home interface",
+                self._toggle_home_interface,
+                checked=lambda item: home_window_visible(),
+                enabled=lambda item: find_home_bundle() is not None,
+            ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
                 "აპლიკაციები",
@@ -200,7 +211,7 @@ class TrayApplication:
                     pystray.MenuItem(
                         "Windows-თან ერთად გაშვება",
                         self._toggle_startup,
-                        checked=lambda item: startup_shortcut().is_file(),
+                        checked=lambda item: startup_enabled(),
                     ),
                 ),
             ),
@@ -340,6 +351,10 @@ class TrayApplication:
 
     @staticmethod
     def _open_home_window(icon, item) -> None:
+        if home_window_exists():
+            set_home_window_visible(True)
+            icon.update_menu()
+            return
         if find_home_bundle() is None:
             icon.notify("Gela Home bundle is not available on this PC.", "Gela")
             return
@@ -349,6 +364,14 @@ class TrayApplication:
             else [sys.executable, "-m", "voice_assistant.tray", "--home-window"]
         )
         subprocess.Popen(command, close_fds=True)
+
+    @staticmethod
+    def _toggle_home_interface(icon, item) -> None:
+        if home_window_exists():
+            set_home_window_visible(not home_window_visible())
+            icon.update_menu()
+            return
+        TrayApplication._open_home_window(icon, item)
 
     @staticmethod
     def _open_alias_manager(icon, item) -> None:
@@ -554,7 +577,7 @@ class TrayApplication:
         subprocess.Popen(["notepad.exe", str(path)], close_fds=True)
 
     def _toggle_startup(self, icon, item) -> None:
-        if startup_shortcut().is_file():
+        if startup_enabled():
             uninstall_startup()
         else:
             install_startup()
@@ -582,6 +605,16 @@ class TrayApplication:
 
 
 def main() -> int:
+    if "--home-hide" in sys.argv:
+        return 0 if set_home_window_visible(False) else 1
+    if "--home-show" in sys.argv:
+        return 0 if set_home_window_visible(True) else 1
+    if "--install-startup" in sys.argv:
+        install_startup()
+        return 0
+    if "--uninstall-startup" in sys.argv:
+        uninstall_startup()
+        return 0
     if "--home-window" in sys.argv:
         from .home_window import main as home_window_main
 

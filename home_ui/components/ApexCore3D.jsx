@@ -36,11 +36,11 @@ class OrbBoundary extends React.Component {
   render() { return this.state.dead ? null : this.props.children }
 }
 
-const GOLD = '#dc5148'
-const GOLDLINE = '#e77062'
-const GOLDNODE = '#f5c0aa'
-const CYAN = '#d83f39'
-const BALL = '#ffd5c5'
+const GOLD = '#00ffff'
+const GOLDLINE = '#00cce8'
+const GOLDNODE = '#bfffff'
+const CYAN = '#0088ff'
+const BALL = '#d9ffff'
 const N = 1200
 const ARM_N = 340   // particles forming the stream/arm to the cursor (rest = the ball)
 const GREEN = 1.5

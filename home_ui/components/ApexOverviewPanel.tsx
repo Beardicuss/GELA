@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const ACCENT = "#dc5148";
+const ACCENT = "#00ffff";
 
 export default function GelaOverviewPanel() {
   const [now, setNow] = useState<Date | null>(null);
@@ -27,14 +27,14 @@ export default function GelaOverviewPanel() {
           fontFamily: "var(--font-mono)" }}>GELA / OVERVIEW</span>
       </button>
       <div className="gela-overview-clock" style={{ pointerEvents: "auto" }}>
-        <div style={{ fontSize: 34, fontWeight: 300, letterSpacing: "0.04em", color: "#f1e7e5", lineHeight: 1 }}>
+        <div style={{ fontSize: 34, fontWeight: 300, letterSpacing: "0.04em", color: "#e8f4f8", lineHeight: 1 }}>
           {now?.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) || "--:--"}
         </div>
-        <div style={{ fontSize: 11, letterSpacing: "0.18em", color: "#ad9a97", marginTop: 5, textTransform: "uppercase" }}>
+        <div style={{ fontSize: 11, letterSpacing: "0.18em", color: "rgba(232,244,248,.58)", marginTop: 5, textTransform: "uppercase" }}>
           {now?.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) || ""}
         </div>
-        {open && <div style={{ marginTop: 18, padding: "12px 15px", background: "#181111dd", border: `1px solid ${ACCENT}55`,
-          color: "#d9bdb7", fontSize: 11, letterSpacing: "0.12em" }}>GELA HOME · LOCAL PC COMMAND CENTRE</div>}
+        {open && <div style={{ marginTop: 18, padding: "12px 15px", background: "rgba(5,8,16,.9)", border: `1px solid ${ACCENT}55`,
+          color: "#cfeff4", fontSize: 11, letterSpacing: "0.12em" }}>GELA HOME · LOCAL PC COMMAND CENTRE</div>}
       </div>
     </div>
   );
